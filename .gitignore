@@ -1,0 +1,7 @@
+# Ignorar carpetas de Python compiladas
+**/__pycache__/
+*.pyc
+
+# Ignorar archivos o carpetas específicas
+sudo
+zypper
