@@ -1,9 +1,4 @@
 from util.exports_manager import ExportsManager
+import json
 
-try:
-    parsed = ExportsManager.list_parsed()
-    # parsed es una lista de dicts: {'path', 'hosts', 'raw', 'lineno'}
-    for e in parsed:
-        print(e['lineno'], e['path'], e['hosts'])
-except Exception as e:
-    print("Error:", e)
+print(json.dumps(ExportsManager.list_parsed(), indent=2))

@@ -24,7 +24,31 @@ class MasterPanel:
         boton_cancel = tk.Button(boton_frame, text="Cancel", font=("Times New Roman", 10), bg="#ccc5c4", width=10, height=1, command=self.new_window.destroy)
         boton_cancel.pack(side="left", padx=5)
 
-        
+    def actualizar_hosts(self, event):
+        # Obtener selección del Treeview de directorios
+        seleccion = self.treeview.selection()
+        if not seleccion:
+            return
+
+        item = self.treeview.item(seleccion[0])
+        path_seleccionado = item["values"][0]
+
+        # Limpiar el Treeview de hosts
+        for row in self.host_treeview.get_children():
+            self.host_treeview.delete(row)
+
+        # Obtener los hosts correspondientes desde ExportsManager
+        try:
+            entries = ExportsManager.list_parsed()
+            for e in entries:
+                if e["path"] == path_seleccionado:
+                    for host in e["hosts"]:
+                        nombre_host = host.get("name", "")
+                        opciones = host.get("options", "")
+                        self.host_treeview.insert("", "end", values=(nombre_host, opciones))
+        except Exception as err:
+            messagebox.showerror("Error", f"No se pudieron cargar los hosts:\n{err}")
+
 
 
     def __init__(self):
@@ -68,7 +92,9 @@ class MasterPanel:
                 self.treeview.insert("", "end", values=(e["path"],))
         except Exception as err:
             messagebox.showerror("Error", f"No se pudo leer /etc/exports:\n{err}")
-	
+        
+        # Cada vez que se selecciona un path, actualizar hosts
+        self.treeview.bind("<<TreeviewSelect>>", self.actualizar_hosts)	
 
         #Botones 
         button_frame = tk.Frame(main_frame, bg="#dce2ec")
@@ -92,8 +118,8 @@ class MasterPanel:
         self.host_treeview.column("Options", width=300, anchor="w")
         self.host_treeview.pack(fill="both", padx=10, pady=(0,  10))
         # Insertar datos de ejemplo
-        self.host_treeview.insert("", "end", values=("192.168.0.*", "Allow"))
-        self.host_treeview.insert("", "end", values=("10.0.0.*", "Deny"))
+        #self.host_treeview.insert("", "end", values=("192.168.0.*", "Allow"))
+        #self.host_treeview.insert("", "end", values=("10.0.0.*", "Deny"))
 
         #botones host
         host_button_frame = tk.Frame(main_frame, bg="#dce2ec")

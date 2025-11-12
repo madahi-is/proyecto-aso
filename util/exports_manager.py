@@ -50,29 +50,52 @@ class ExportsManager:
     def list_parsed() -> List[Dict]:
         """
         Parsea /etc/exports y retorna una lista de entradas:
-        Cada entrada es un dict: {"path": str, "hosts": str, "options": str, "raw": str, "lineno": int}
-        Comentarios y líneas vacías son ignoradas en el resultado.
+        [
+          {
+            "path": "/srv/nfs",
+            "hosts": [
+              {"name": "192.168.1.0/24", "options": "(rw,sync)"},
+              {"name": "10.0.0.5", "options": "(ro)"}
+            ],
+            "raw": "<línea original>",
+            "lineno": <número de línea>
+          }
+        ]
         """
         lines = ExportsManager.list_raw()
         parsed = []
+
         for i, line in enumerate(lines, start=1):
             s = line.strip()
             if not s or s.startswith("#"):
                 continue
-            # formato básico: <ruta> <hosts>(<opciones>) [hosts2(options2)] ...
-            # Guardamos la línea tal cual; para edición simple usaremos la ruta inicial.
-            parts = s.split(None, 1)
-            path = parts[0] if parts else ""
-            rest = parts[1] if len(parts) > 1 else ""
-            # Para conveniencia, guardamos hosts+options en 'hosts'
+
+            parts = s.split()
+            path = parts[0]
+            hosts = parts[1:]
+
+            host_entries = []
+            for h in hosts:
+                # ejemplo: 192.168.1.0/24(rw,sync)
+                if "(" in h and ")" in h:
+                    name, opts = h.split("(", 1)
+                    opts = "(" + opts  # restaurar el paréntesis inicial
+                else:
+                    name, opts = h, ""
+                host_entries.append({
+                    "name": name.strip(),
+                    "options": opts.strip()
+                })
+
             parsed.append({
                 "path": path,
-                "hosts": rest,
-                "options": None,   # si quieres un parseo más fino, podemos implementarlo luego
+                "hosts": host_entries,
                 "raw": line,
                 "lineno": i
             })
+
         return parsed
+
 
     @staticmethod
     def backup(backup_path: Optional[str] = None) -> str:
