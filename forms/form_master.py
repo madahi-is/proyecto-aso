@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from tkinter.font import BOLD
 import util.generic as utl
+from util.exports_manager import ExportsManager
 
 class MasterPanel:
     def add_directory(self):
@@ -59,10 +60,15 @@ class MasterPanel:
         self.treeview = ttk.Treeview(main_frame, columns=("Directorio",), show="", height=8)
         self.treeview.pack(fill="both", padx=10, pady=(0, 10))
         self.treeview.column("Directorio", width=300,anchor="w")
-
-        # Insertar datos de ejemplo
-        self.treeview.insert("", "end", values=("/opt/data/",))
-        self.treeview.insert("", "end", values=("/srv/nfs/",))
+	
+	#Cargar datos reales de /etc/exports
+        try:
+            entries = ExportsManager.list_parsed()
+            for e in entries:
+                self.treeview.insert("", "end", values=(e["path"],))
+        except Exception as err:
+            messagebox.showerror("Error", f"No se pudo leer /etc/exports:\n{err}")
+	
 
         #Botones 
         button_frame = tk.Frame(main_frame, bg="#dce2ec")
