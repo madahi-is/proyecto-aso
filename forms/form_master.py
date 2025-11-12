@@ -7,13 +7,17 @@ from util.exports_manager import ExportsManager
 class MasterPanel:
     def add_directory(self):
         self.new_window = tk.Toplevel(self.ventana)
-        self.new_window.geometry("200x100")
+        self.new_window.geometry("300x100")
         self.new_window.title("Add Directory")
         self.new_window.config(bg="#dce2ec")
-        utl.centrar_ventana(self.new_window, 200, 100)
-        label = tk.Label(self.new_window, text="Directory to Export", font=("Times New Roman", 10), bg="#dce2ec")
+        utl.centrar_ventana(self.new_window, 300, 100)
+        
+        top_frame = tk.Frame(self.new_window, bg="#dce2ec")
+        top_frame.pack(pady=5)
+        
+        label = tk.Label(top_frame, text="Directory to Export", font=("Times New Roman", 10), bg="#dce2ec", anchor="e")
         label.pack( pady=5  )
-        new_directory_entry = ttk.Entry(self.new_window, font=("Times New Roman", 10))
+        new_directory_entry = ttk.Entry(top_frame, font=("Times New Roman", 10))
         new_directory_entry.pack()
 
         boton_frame = tk.Frame(self.new_window, bg="#dce2ec")
@@ -23,6 +27,36 @@ class MasterPanel:
         boton_ok.pack(side="left", padx=5)
         boton_cancel = tk.Button(boton_frame, text="Cancel", font=("Times New Roman", 10), bg="#ccc5c4", width=10, height=1, command=self.new_window.destroy)
         boton_cancel.pack(side="left", padx=5)
+
+
+    def add_host(self):
+        seleccion = tk.StringVar()
+        self.new_host_window = tk.Toplevel(self.ventana)
+        self.new_host_window.geometry("300x150")
+        self.new_host_window.title("Add Host")
+        self.new_host_window.config(bg="#dce2ec")
+        utl.centrar_ventana(self.new_host_window, 200, 150)
+        label = tk.Label(self.new_host_window, text="Host Wild Card", font=("Times New Roman", 10), bg="#dce2ec")
+        label.pack( pady=5  )
+        host_entry = ttk.Entry(self.new_host_window, font=("Times New Roman", 10))
+        host_entry.pack()
+
+        label_options = tk.Label(self.new_host_window, text="Options", font=("Times New Roman", 10), bg="#dce2ec")
+        label_options.pack( pady=5  )
+
+        combo = ttk.Combobox(self.new_host_window, textvariable=seleccion , font=("Times New Roman", 10))
+        combo['values'] = ( "rw", "ro", "sync", "async", "no_root_squash", "root_squash",
+        "all_squash", "no_subtree_check", "subtree_check", "insecure",
+        "secure", "anonuid", "anongid")
+        combo.pack()
+
+        boton_frame = tk.Frame(self.new_host_window, bg="#dce2ec")
+        boton_frame.pack(pady=10)
+
+        boton_ok = tk.Button(boton_frame, text="OK", font=("Times New Roman", 10), bg="#b6c6e7", width=10, height=1)
+        boton_ok.pack(side="left", padx=5)
+        boton_cancel = tk.Button(boton_frame, text="Cancel", font=("Times New Roman", 10), bg="#ccc5c4", width=10, height=1, command=self.new_host_window.destroy)
+        boton_cancel.pack(side="left", padx=5)   
 
     def actualizar_hosts(self, event):
         # Obtener selección del Treeview de directorios
@@ -125,7 +159,7 @@ class MasterPanel:
         host_button_frame = tk.Frame(main_frame, bg="#dce2ec")
         host_button_frame.pack(pady=0)
 
-        boton_host_add = tk.Button(host_button_frame, text="Add Host", font=("Times New Roman", 10), bg="#dce2ec",width=12, height=1)
+        boton_host_add = tk.Button(host_button_frame, text="Add Host", font=("Times New Roman", 10), bg="#dce2ec",width=12, height=1, command= self.add_host)
         boton_host_add.pack(side="left", padx=5)
         boton_host_edit = tk.Button(host_button_frame, text="Edit", font=("Times New Roman", 10), bg="#dce2ec",width=12, height=1)
         boton_host_edit.pack(side="left", padx=5)
