@@ -4,6 +4,27 @@ from tkinter.font import BOLD
 import util.generic as utl
 
 class MasterPanel:
+    def add_directory(self):
+        self.new_window = tk.Toplevel(self.ventana)
+        self.new_window.geometry("200x100")
+        self.new_window.title("Add Directory")
+        self.new_window.config(bg="#dce2ec")
+        utl.centrar_ventana(self.new_window, 200, 100)
+        label = tk.Label(self.new_window, text="Directory to Export", font=("Times New Roman", 10), bg="#dce2ec")
+        label.pack( pady=5  )
+        new_directory_entry = ttk.Entry(self.new_window, font=("Times New Roman", 10))
+        new_directory_entry.pack()
+
+        boton_frame = tk.Frame(self.new_window, bg="#dce2ec")
+        boton_frame.pack(pady=10)
+
+        boton_ok = tk.Button(boton_frame, text="OK", font=("Times New Roman", 10), bg="#b6c6e7", width=10, height=1)
+        boton_ok.pack(side="left", padx=5)
+        boton_cancel = tk.Button(boton_frame, text="Cancel", font=("Times New Roman", 10), bg="#ccc5c4", width=10, height=1, command=self.new_window.destroy)
+        boton_cancel.pack(side="left", padx=5)
+
+        
+
 
     def __init__(self):
         self.ventana = tk.Tk()
@@ -47,7 +68,7 @@ class MasterPanel:
         button_frame = tk.Frame(main_frame, bg="#dce2ec")
         button_frame.pack(pady=0) 
 
-        boton_Add = tk.Button(button_frame, text="Add Directory", font=("Times New Roman", 10), bg="#dce2ec",width=12, height=1)
+        boton_Add = tk.Button(button_frame, text="Add Directory", font=("Times New Roman", 10), bg="#dce2ec",width=12, height=1, command= self.add_directory)
         boton_Add.pack(side="left", padx=5)
         boton_edit = tk.Button(button_frame, text="Edit", font=("Times New Roman", 10), bg="#dce2ec",width=12, height=1)
         boton_edit.pack(side="left", padx=5)
