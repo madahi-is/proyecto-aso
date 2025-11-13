@@ -6,6 +6,12 @@ from util.exports_manager import ExportsManager
 from util.add_directory import Add
 
 class MasterPanel:
+        # NUEVO MÉTODO: Abrir Client Manager
+    def open_client_manager(self):
+        """Abre el panel de gestión de clientes y servicios"""
+        from forms.clientManager import ClientManagerPanel
+        ClientManagerPanel(parent=self.ventana)
+
     def edit_directory(self):
         try:
             # 1️⃣ Verificar selección
@@ -295,7 +301,7 @@ class MasterPanel:
         label = tk.Label(self.ventana, bg="#dce2ec")
         label.place(x=0, y=0, relheight=1,relwidth=1)
 
-                # ======== MARCO PRINCIPAL =========
+        # ======== MARCO PRINCIPAL =========
         main_frame = tk.Frame(self.ventana, bg="#dce2ec", relief="flat")
         main_frame.pack(fill="both", expand=True, padx=20, pady=20)
 
@@ -337,7 +343,6 @@ class MasterPanel:
         boton_Add.pack(side="left", padx=5)
         boton_edit = tk.Button(button_frame, text="Edit", font=("Times New Roman", 10), bg="#dce2ec",width=12, height=1, command=self.edit_directory)
         boton_edit.pack(side="left", padx=5)
-        #boton_delete = tk.Button(button_frame, text="Delete", font=("Times New Roman", 10), bg="#dce2ec",width=12, height=1)
         boton_delete = tk.Button(button_frame, text="Delete", font=("Times New Roman", 10), bg="#dce2ec",width=12, height=1, command=lambda: self.delete_directory(self.treeview.item(self.treeview.selection())["values"][0]) )
         boton_delete.pack(side="left", padx=5)
         
@@ -351,9 +356,6 @@ class MasterPanel:
         self.host_treeview.column("Host Wild Card", width=50, anchor="w")
         self.host_treeview.column("Options", width=300, anchor="w")
         self.host_treeview.pack(fill="both", padx=10, pady=(0,  10))
-        # Insertar datos de ejemplo
-        #self.host_treeview.insert("", "end", values=("192.168.0.*", "Allow"))
-        #self.host_treeview.insert("", "end", values=("10.0.0.*", "Deny"))
 
         #botones host
         host_button_frame = tk.Frame(main_frame, bg="#dce2ec")
@@ -369,6 +371,10 @@ class MasterPanel:
         # Botones de Finish y Cancelar
         action_button_frame = tk.Frame(main_frame, bg="#dce2ec")
         action_button_frame.pack(side="bottom", fill="x", padx=10, pady=10)
+
+        # NUEVO BOTÓN: Client Manager
+        boton_client_manager = tk.Button(action_button_frame, text="Client Manager", font=("Times New Roman", 11, BOLD), bg="#9C27B0", fg="white", width=15, height=1, command=self.open_client_manager)
+        boton_client_manager.pack(side="left", padx=5)
 
         boton_finish = tk.Button(action_button_frame, text="Finish", font=("Times New Roman", 11, BOLD), bg="#3a7ff6", width=12, height=1)
         boton_finish.pack(side="right", padx=5)      
