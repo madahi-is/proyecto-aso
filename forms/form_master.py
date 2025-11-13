@@ -199,10 +199,63 @@ class MasterPanel:
         boton_frame = tk.Frame(self.new_host_window, bg="#dce2ec")
         boton_frame.pack(pady=10)
 
-        boton_ok = tk.Button(boton_frame, text="OK", font=("Times New Roman", 10), bg="#b6c6e7", width=10, height=1)
+        def confirmar_host():
+            """Función para añadir un host al directorio seleccionado"""
+            try:
+                # 1. Obtener directorio seleccionado del Treeview principal
+                seleccion_dir = self.treeview.selection()
+                if not seleccion_dir:
+                    messagebox.showwarning("Advertencia", "Seleccione un directorio primero.", parent=self.new_host_window)
+                    return
+
+                item = self.treeview.item(seleccion_dir[0])
+                path_seleccionado = item["values"][0]
+
+                # 2. Obtener valores ingresados
+                nuevo_host = host_entry.get().strip()
+                opcion_seleccionada = seleccion.get().strip()
+
+                if not nuevo_host:
+                    messagebox.showwarning("Advertencia", "Debe ingresar un nombre de host.", parent=self.new_host_window)
+                    return
+
+                # 3. Construir nueva expresión de hosts
+                # Formato: nombre_host(opciones)
+                opciones_str = f"({opcion_seleccionada})" if opcion_seleccionada else "(rw,sync,no_subtree_check)"
+                nuevo_hosts_expr = f"{nuevo_host}{opciones_str}"
+
+                # 4. Obtener hosts existentes
+                entries = ExportsManager.list_parsed()
+                hosts_actuales = []
+                for e in entries:
+                    if e["path"] == path_seleccionado:
+                        for h in e["hosts"]:
+                            hosts_actuales.append(f"{h['name']}{h['options']}")
+                        break
+
+                # 5. Añadir nuevo host a la lista
+                hosts_actuales.append(nuevo_hosts_expr)
+
+                # 6. Crear expresión completa
+                expresion_completa = " ".join(hosts_actuales)
+
+                # 7. Actualizar entrada en /etc/exports
+                ExportsManager.edit_entry(path_seleccionado, expresion_completa)
+
+                # 8. Cerrar ventana y refrescar
+                self.new_host_window.destroy()
+                self.actualizar_hosts(None)
+
+                messagebox.showinfo("Éxito", "Host añadido correctamente.")
+
+            except Exception as err:
+                messagebox.showerror("Error", f"No se pudo añadir el host:\n{err}", parent=self.new_host_window)
+                print(f"[ERROR] add_host: {err}")
+
+        boton_ok = tk.Button(boton_frame, text="OK", font=("Times New Roman", 10), bg="#b6c6e7", width=10, height=1, command=confirmar_host)
         boton_ok.pack(side="left", padx=5)
         boton_cancel = tk.Button(boton_frame, text="Cancel", font=("Times New Roman", 10), bg="#ccc5c4", width=10, height=1, command=self.new_host_window.destroy)
-        boton_cancel.pack(side="left", padx=5)   
+        boton_cancel.pack(side="left", padx=5)
 
     def actualizar_hosts(self, event):
         # Obtener selección del Treeview de directorios
@@ -324,8 +377,3 @@ class MasterPanel:
 
 
         self.ventana.mainloop()
-
-
-
-
-
