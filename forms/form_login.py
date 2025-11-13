@@ -19,10 +19,10 @@ class App:
     def __init__(self):
         self.ventana = tk.Tk()
         self.ventana.title("Login")
-        self.ventana.geometry("700x400")
+        self.ventana.geometry("800x500")
         self.ventana.config(bg="#fcfcfc")
         self.ventana.resizable(width=0, height=0)
-        utl.centrar_ventana(self.ventana, 700, 400)
+        utl.centrar_ventana(self.ventana, 800, 500)
 
         logo = utl.leer_imagen("imagenes/nfs.png", (200, 200))
 
