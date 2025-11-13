@@ -4,6 +4,7 @@ from tkinter.font import BOLD
 import util.generic as utl
 from util.service_manager import ServiceManager, ServiceError
 from util.backup_manager import BackupManager, BackupError
+from util.mount_manager import MountManager, MountError
 
 class ClientManagerPanel:
     """Panel de gestión de clientes NFS y servicios"""
@@ -15,10 +16,10 @@ class ClientManagerPanel:
             self.ventana = tk.Tk()
 
         self.ventana.title("NFS Client & Service Manager")
-        self.ventana.geometry("1000x700")
+        self.ventana.geometry("1000x800")
         self.ventana.config(bg="#fcfcfc")
         self.ventana.resizable(True, True)
-        utl.centrar_ventana(self.ventana, 1000, 700)
+        utl.centrar_ventana(self.ventana, 1000, 800)
 
         # Frame principal
         self.setup_ui()
@@ -48,7 +49,10 @@ class ClientManagerPanel:
         # ======== SECCIÓN 3: CLIENTES CONECTADOS ========
         self.setup_clients_section(main_frame)
 
-        # ======== SECCIÓN 4: BACKUPS ========
+        # ======== SECCIÓN 4: MONTAJES NFS (NUEVA) ========
+        self.setup_mounts_section(main_frame)
+
+        # ======== SECCIÓN 5: BACKUPS ========
         self.setup_backup_section(main_frame)
 
         # ======== BOTONES INFERIORES ========
@@ -164,6 +168,60 @@ class ClientManagerPanel:
         self.clients_tree.column("Hostname", width=200)
         self.clients_tree.column("Mount Path", width=400)
         self.clients_tree.pack(fill="x", padx=10, pady=(0, 10))
+
+    def setup_mounts_section(self, parent):
+        """Sección de montajes NFS"""
+        title = tk.Label(
+            parent,
+            text="NFS Mounts (Client Mode)",
+            font=("Times New Roman", 11, BOLD),
+            bg="#dce2ec",
+            anchor="w"
+        )
+        title.pack(fill="x", padx=10, pady=(10, 5))
+
+        # Frame de contenido
+        mount_frame = tk.Frame(parent, bg="#ffffff", relief="raised", bd=1)
+        mount_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+
+        # Botones de montaje
+        buttons_frame = tk.Frame(mount_frame, bg="#ffffff")
+        buttons_frame.pack(fill="x", padx=10, pady=10)
+
+        tk.Button(buttons_frame, text="Mount NFS", font=("Times New Roman", 9),
+                 bg="#4CAF50", fg="white", width=12,
+                 command=self.mount_nfs_dialog).pack(side="left", padx=5)
+
+        tk.Button(buttons_frame, text="Unmount", font=("Times New Roman", 9),
+                 bg="#f44336", fg="white", width=12,
+                 command=self.unmount_nfs).pack(side="left", padx=5)
+
+        tk.Button(buttons_frame, text="Add to fstab", font=("Times New Roman", 9),
+                 bg="#FF9800", fg="white", width=12,
+                 command=self.add_to_fstab).pack(side="left", padx=5)
+
+        tk.Button(buttons_frame, text="Refresh", font=("Times New Roman", 9),
+                 bg="#2196F3", fg="white", width=12,
+                 command=self.refresh_mounts).pack(side="left", padx=5)
+
+        # Treeview de montajes
+        self.mounts_tree = ttk.Treeview(
+            mount_frame,
+            columns=("Server", "Remote Path", "Mount Point", "Type", "Options"),
+            show="headings",
+            height=5
+        )
+        self.mounts_tree.heading("Server", text="Server")
+        self.mounts_tree.heading("Remote Path", text="Remote Path")
+        self.mounts_tree.heading("Mount Point", text="Mount Point")
+        self.mounts_tree.heading("Type", text="Type")
+        self.mounts_tree.heading("Options", text="Options")
+        self.mounts_tree.column("Server", width=120)
+        self.mounts_tree.column("Remote Path", width=150)
+        self.mounts_tree.column("Mount Point", width=150)
+        self.mounts_tree.column("Type", width=60)
+        self.mounts_tree.column("Options", width=200)
+        self.mounts_tree.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
     def setup_backup_section(self, parent):
         """Sección de backups"""
@@ -358,6 +416,224 @@ class ClientManagerPanel:
         except Exception as e:
             print(f"[ERROR] refresh_clients: {e}")
 
+    # ========== MÉTODOS DE MONTAJE ==========
+
+    def mount_nfs_dialog(self):
+        """Diálogo para montar un recurso NFS"""
+        dialog = tk.Toplevel(self.ventana)
+        dialog.title("Mount NFS Resource")
+        dialog.geometry("500x350")
+        dialog.config(bg="#dce2ec")
+        utl.centrar_ventana(dialog, 500, 350)
+
+        # Campos del formulario
+        fields_frame = tk.Frame(dialog, bg="#dce2ec")
+        fields_frame.pack(fill="both", expand=True, padx=20, pady=20)
+
+        # Server
+        tk.Label(fields_frame, text="NFS Server (IP or hostname):",
+                font=("Times New Roman", 10), bg="#dce2ec").grid(row=0, column=0, sticky="w", pady=5)
+        server_entry = ttk.Entry(fields_frame, font=("Times New Roman", 10), width=35)
+        server_entry.grid(row=0, column=1, pady=5, padx=5)
+        server_entry.insert(0, "192.168.1.1")  # Valor por defecto
+
+        # Remote Path
+        tk.Label(fields_frame, text="Remote Path:",
+                font=("Times New Roman", 10), bg="#dce2ec").grid(row=1, column=0, sticky="w", pady=5)
+        remote_entry = ttk.Entry(fields_frame, font=("Times New Roman", 10), width=35)
+        remote_entry.grid(row=1, column=1, pady=5, padx=5)
+        remote_entry.insert(0, "/srv/nfs/compartido")  # Valor por defecto
+
+        # Mount Point
+        tk.Label(fields_frame, text="Local Mount Point:",
+                font=("Times New Roman", 10), bg="#dce2ec").grid(row=2, column=0, sticky="w", pady=5)
+        mount_entry = ttk.Entry(fields_frame, font=("Times New Roman", 10), width=35)
+        mount_entry.grid(row=2, column=1, pady=5, padx=5)
+        mount_entry.insert(0, "/mnt/nfs/compartido")  # Valor por defecto
+
+        # Options preset
+        tk.Label(fields_frame, text="Mount Options Preset:",
+                font=("Times New Roman", 10), bg="#dce2ec").grid(row=3, column=0, sticky="w", pady=5)
+
+        options_var = tk.StringVar()
+        presets = MountManager.get_mount_options_presets()
+        options_combo = ttk.Combobox(fields_frame, textvariable=options_var,
+                                     font=("Times New Roman", 10), width=32, state="readonly")
+        options_combo['values'] = list(presets.keys())
+        options_combo.current(0)  # Default
+        options_combo.grid(row=3, column=1, pady=5, padx=5)
+
+        # Custom options
+        tk.Label(fields_frame, text="Custom Options (optional):",
+                font=("Times New Roman", 10), bg="#dce2ec").grid(row=4, column=0, sticky="w", pady=5)
+        custom_entry = ttk.Entry(fields_frame, font=("Times New Roman", 10), width=35)
+        custom_entry.grid(row=4, column=1, pady=5, padx=5)
+
+        # Test button
+        def test_connection():
+            server = server_entry.get().strip()
+            remote = remote_entry.get().strip()
+            if not server or not remote:
+                messagebox.showwarning("Advertencia", "Ingrese servidor y ruta remota", parent=dialog)
+                return
+
+            messagebox.showinfo("Probando", f"Probando conexión a {server}...", parent=dialog)
+            if MountManager.test_mount(server, remote):
+                messagebox.showinfo("Éxito", "Recurso NFS accesible", parent=dialog)
+            else:
+                messagebox.showerror("Error", "No se puede acceder al recurso NFS", parent=dialog)
+
+        tk.Button(fields_frame, text="Test Connection", font=("Times New Roman", 9),
+                 bg="#9C27B0", fg="white", width=20,
+                 command=test_connection).grid(row=5, column=0, columnspan=2, pady=10)
+
+        # Botones de acción
+        def do_mount():
+            try:
+                server = server_entry.get().strip()
+                remote = remote_entry.get().strip()
+                mount_point = mount_entry.get().strip()
+
+                if not server or not remote or not mount_point:
+                    messagebox.showwarning("Advertencia", "Complete todos los campos requeridos", parent=dialog)
+                    return
+
+                # Obtener opciones
+                custom_opts = custom_entry.get().strip()
+                if custom_opts:
+                    options = custom_opts
+                else:
+                    preset_name = options_var.get()
+                    options = presets.get(preset_name, "rw,sync")
+
+                # Montar
+                MountManager.mount_nfs(server, remote, mount_point, options)
+                dialog.destroy()
+                messagebox.showinfo("Éxito", f"Montado exitosamente en:\n{mount_point}")
+                self.refresh_mounts()
+
+            except MountError as e:
+                messagebox.showerror("Error", f"No se pudo montar:\n{e}", parent=dialog)
+
+        button_frame = tk.Frame(dialog, bg="#dce2ec")
+        button_frame.pack(pady=10)
+
+        tk.Button(button_frame, text="Mount", font=("Times New Roman", 10),
+                 bg="#4CAF50", fg="white", width=12,
+                 command=do_mount).pack(side="left", padx=5)
+
+        tk.Button(button_frame, text="Cancel", font=("Times New Roman", 10),
+                 bg="#f44336", fg="white", width=12,
+                 command=dialog.destroy).pack(side="left", padx=5)
+
+    def unmount_nfs(self):
+        """Desmonta un recurso NFS seleccionado"""
+        selection = self.mounts_tree.selection()
+        if not selection:
+            messagebox.showwarning("Advertencia", "Seleccione un montaje para desmontar")
+            return
+
+        item = self.mounts_tree.item(selection[0])
+        mount_point = item["values"][2]
+
+        confirm = messagebox.askyesno("Confirmar",
+                                     f"¿Desmontar {mount_point}?")
+        if confirm:
+            try:
+                MountManager.unmount_nfs(mount_point)
+                messagebox.showinfo("Éxito", "Desmontado correctamente")
+                self.refresh_mounts()
+            except MountError as e:
+                # Intentar forzar desmontaje
+                retry = messagebox.askyesno("Error",
+                                           f"No se pudo desmontar:\n{e}\n\n"
+                                           f"¿Intentar forzar desmontaje?")
+                if retry:
+                    try:
+                        MountManager.unmount_nfs(mount_point, force=True)
+                        messagebox.showinfo("Éxito", "Desmontado forzosamente")
+                        self.refresh_mounts()
+                    except MountError as e2:
+                        messagebox.showerror("Error", f"No se pudo desmontar:\n{e2}")
+
+    def add_to_fstab(self):
+        """Añade un montaje seleccionado a /etc/fstab"""
+        selection = self.mounts_tree.selection()
+        if not selection:
+            messagebox.showwarning("Advertencia", "Seleccione un montaje para añadir a fstab")
+            return
+
+        item = self.mounts_tree.item(selection[0])
+        server = item["values"][0]
+        remote_path = item["values"][1]
+        mount_point = item["values"][2]
+        options = item["values"][4]
+
+        # Diálogo de confirmación con opciones
+        dialog = tk.Toplevel(self.ventana)
+        dialog.title("Add to fstab")
+        dialog.geometry("450x200")
+        dialog.config(bg="#dce2ec")
+        utl.centrar_ventana(dialog, 450, 200)
+
+        tk.Label(dialog, text="Se añadirá la siguiente entrada a /etc/fstab:",
+                font=("Times New Roman", 10, BOLD), bg="#dce2ec").pack(pady=10)
+
+        info_text = f"{server}:{remote_path}\n{mount_point}\nnfs\n{options},_netdev 0 0"
+        tk.Label(dialog, text=info_text, font=("Times New Roman", 9),
+                bg="#ffffff", justify="left", relief="sunken", padx=10, pady=10).pack(padx=20)
+
+        tk.Label(dialog, text="Se creará un backup de fstab automáticamente",
+                font=("Times New Roman", 9), bg="#dce2ec", fg="green").pack(pady=5)
+
+        def do_add():
+            try:
+                opts = f"{options},_netdev" if options else "defaults,_netdev"
+                MountManager.add_to_fstab(server, remote_path, mount_point, opts)
+                dialog.destroy()
+                messagebox.showinfo("Éxito", "Añadido a /etc/fstab correctamente")
+            except MountError as e:
+                messagebox.showerror("Error", f"No se pudo añadir a fstab:\n{e}", parent=dialog)
+
+        button_frame = tk.Frame(dialog, bg="#dce2ec")
+        button_frame.pack(pady=10)
+
+        tk.Button(button_frame, text="Add", font=("Times New Roman", 10),
+                 bg="#4CAF50", fg="white", width=12,
+                 command=do_add).pack(side="left", padx=5)
+
+        tk.Button(button_frame, text="Cancel", font=("Times New Roman", 10),
+                 bg="#f44336", fg="white", width=12,
+                 command=dialog.destroy).pack(side="left", padx=5)
+
+    def refresh_mounts(self):
+        """Actualiza la lista de montajes NFS"""
+        try:
+            # Limpiar treeview
+            for item in self.mounts_tree.get_children():
+                self.mounts_tree.delete(item)
+
+            # Obtener montajes
+            mounts = MountManager.get_mounted_nfs()
+
+            # Llenar treeview
+            for mount in mounts:
+                self.mounts_tree.insert("", "end", values=(
+                    mount.get("server", ""),
+                    mount.get("remote_path", ""),
+                    mount.get("mount_point", ""),
+                    mount.get("type", ""),
+                    mount.get("options", "")
+                ))
+
+            if not mounts:
+                self.mounts_tree.insert("", "end", values=(
+                    "No hay montajes NFS activos", "", "", "", ""
+                ))
+
+        except Exception as e:
+            print(f"[ERROR] refresh_mounts: {e}")
+
     # ========== MÉTODOS DE BACKUP ==========
 
     def create_backup(self):
@@ -472,10 +748,10 @@ class ClientManagerPanel:
         self.refresh_service_status()
         self.refresh_exports()
         self.refresh_clients()
+        self.refresh_mounts()  # NUEVA
         self.refresh_backups()
 
 
 # Para pruebas independientes
 if __name__ == "__main__":
     ClientManagerPanel()
-
