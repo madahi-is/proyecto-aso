@@ -22,8 +22,14 @@ class ExportsError(Exception):
 class ExportsManager:
     @staticmethod
     def _run_pkexec(cmd: List[str], timeout: int = 10) -> subprocess.CompletedProcess:
-        """Ejecuta un comando usando pkexec (dialogo gráfico de autenticación)."""
-        return subprocess.run(["pkexec"] + cmd, capture_output=True, text=True, timeout=timeout)
+        """Ejecuta un comando usando pkexec compatible con Python 3.6."""
+        return subprocess.run(
+            ["pkexec"] + cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+            timeout=timeout
+        )
 
     @staticmethod
     def _read_file_as_root(path: str) -> str:
@@ -96,19 +102,15 @@ class ExportsManager:
 
         return parsed
 
-
     @staticmethod
     def backup(backup_path: Optional[str] = None) -> str:
-        """
-        Crea un backup de /etc/exports. Retorna la ruta del backup.
-        Si backup_path no se provee, crea /etc/exports.bak
-        """
+        """Crea backup de /etc/exports usando pkexec si es necesario."""
         if backup_path is None:
             backup_path = EXPORTS_PATH + BACKUP_SUFFIX
-        # Intentamos copia directa, si falla por permisos usamos pkexec cp
         try:
             shutil.copyfile(EXPORTS_PATH, backup_path)
         except PermissionError:
+            # fallback con pkexec
             res = ExportsManager._run_pkexec(["cp", EXPORTS_PATH, backup_path])
             if res.returncode != 0:
                 raise ExportsError(f"No se pudo crear backup: {res.stderr.strip()}")
@@ -116,41 +118,34 @@ class ExportsManager:
 
     @staticmethod
     def _write_temp_and_move(new_text: str) -> None:
-        """
-        Escribe new_text a un archivo temporal y lo mueve atómicamente a /etc/exports
-        usando pkexec para el mv (necesita permisos).
-        También crea backup automático antes de mover.
-        """
-        # 1) crear temp file local
+        """Escribe temp local y mueve a /etc/exports usando pkexec."""
         fd, tmp_path = tempfile.mkstemp(prefix="exports_tmp_", text=True)
         os.close(fd)
         try:
             with open(tmp_path, "w", encoding="utf-8") as f:
                 f.write(new_text)
-            # 2) crear backup
+
+            # Backup
             ExportsManager.backup()
-            # 3) mover temp a /etc/exports con pkexec (reemplaza fichero)
+
+            # Mover temp a /etc/exports con pkexec
             res = ExportsManager._run_pkexec(["mv", tmp_path, EXPORTS_PATH])
             if res.returncode != 0:
-                # intentar limpiar temp si mv falló
-                try:
-                    os.remove(tmp_path)
-                except Exception:
-                    pass
-                raise ExportsError(f"No se pudo mover el archivo temporal a {EXPORTS_PATH}: {res.stderr.strip()}")
-            # 4) recargar exportfs
+                try: os.remove(tmp_path)
+                except Exception: pass
+                raise ExportsError(f"No se pudo mover el archivo: {res.stderr.strip()}")
+
+            # Recargar exportfs
             res2 = ExportsManager._run_pkexec(["exportfs", "-ra"])
             if res2.returncode != 0:
-                # exportfs falló: restauramos backup y avisamos
+                # Restaurar backup
                 ExportsManager._run_pkexec(["cp", EXPORTS_PATH + BACKUP_SUFFIX, EXPORTS_PATH])
                 raise ExportsError(f"exportfs devolvió error: {res2.stderr.strip()}")
+
         finally:
-            # asegurar eliminación del temp en caso de que exista
             if os.path.exists(tmp_path):
-                try:
-                    os.remove(tmp_path)
-                except Exception:
-                    pass
+                try: os.remove(tmp_path)
+                except Exception: pass
 
     @staticmethod
     def apply_new_content(new_text: str) -> None:
