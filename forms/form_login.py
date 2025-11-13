@@ -3,18 +3,44 @@ from tkinter import ttk, messagebox
 from tkinter.font import BOLD
 import util.generic as utl
 from forms.form_master import MasterPanel
+import getpass
+import subprocess
 
 class App:
     def validar_login(self):
         usuario = self.usuario.get()
         contrasena = self.contrasena.get()
 
+        # Login normal demo
         if usuario == "admin" and contrasena == "1234":
-            #messagebox.showinfo("Login exitoso", "¡Has iniciado sesión correctamente!")
+            print("[INFO] Login demo exitoso")
+            self.root_user = None  # No se usarán credenciales de root
+            self.root_pass = None
             self.ventana.destroy()
             MasterPanel()
-        else:
-            messagebox.showerror("Error de login", "Usuario o contraseña incorrectos.")
+            return
+        # Login superusuario real
+        try:
+            cmd = ["sudo", "-S", "id"]
+            proc = subprocess.run(
+                cmd,
+                input=contrasena + "\n",
+                universal_newlines=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            if proc.returncode == 0:
+                print(f"[OK] Usuario root válido: {usuario}")
+                self.root_user = usuario
+                self.root_pass = contrasena
+                self.ventana.destroy()
+                #MasterPanel(root_user=usuario, root_pass=contrasena)
+                MasterPanel()
+            else:
+                print("[ERROR] Credenciales root incorrectas")
+                tk.messagebox.showerror("Error de login", "Usuario o contraseña root incorrectos.")
+        except Exception as e:
+            tk.messagebox.showerror("Error de login", f"No se pudo verificar root:\n{e}")
 
     def __init__(self):
         self.ventana = tk.Tk()
