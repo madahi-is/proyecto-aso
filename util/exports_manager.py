@@ -3,8 +3,8 @@
 ExportsManager
 --------------
 Módulo para listar / añadir / editar / eliminar entradas en /etc/exports
-Diseñado para integrarse con una GUI. Usa pkexec para las operaciones que
-requieren permisos de root (abrirá el diálogo gráfico en openSUSE).
+Diseñado para integrarse con una GUI. Usa pkexec o sudo para las operaciones que
+requieren permisos de root (abrirá el diálogo gráfico en openSUSE si usa pkexec).
 """
 
 import os
@@ -20,11 +20,30 @@ class ExportsError(Exception):
     pass
 
 class ExportsManager:
+    _privilege_cmd = None
+
+    @staticmethod
+    def _get_privilege_command():
+        """
+        Detecta qué comando usar para obtener privilegios.
+        Retorna 'pkexec' si está disponible, sino 'sudo'.
+        Cachea el resultado para no verificar múltiples veces.
+        """
+        if ExportsManager._privilege_cmd is None:
+            if shutil.which("pkexec"):
+                ExportsManager._privilege_cmd = "pkexec"
+            elif shutil.which("sudo"):
+                ExportsManager._privilege_cmd = "sudo"
+            else:
+                raise ExportsError("No se encontró pkexec ni sudo en el sistema")
+        return ExportsManager._privilege_cmd
+
     @staticmethod
     def _run_pkexec(cmd: List[str], timeout: int = 10) -> subprocess.CompletedProcess:
-        """Ejecuta un comando usando pkexec compatible con Python 3.6."""
+        """Ejecuta un comando usando pkexec o sudo compatible con Python 3.6."""
+        priv_cmd = ExportsManager._get_privilege_command()
         return subprocess.run(
-            ["pkexec"] + cmd,
+            [priv_cmd] + cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             universal_newlines=True,
@@ -34,7 +53,7 @@ class ExportsManager:
     @staticmethod
     def _read_file_as_root(path: str) -> str:
         """
-        Intenta leer el archivo. Si falla por permisos, usa 'pkexec cat'.
+        Intenta leer el archivo. Si falla por permisos, usa 'pkexec cat' o 'sudo cat'.
         Retorna el contenido del archivo como string.
         """
         try:
@@ -104,13 +123,13 @@ class ExportsManager:
 
     @staticmethod
     def backup(backup_path: Optional[str] = None) -> str:
-        """Crea backup de /etc/exports usando pkexec si es necesario."""
+        """Crea backup de /etc/exports usando pkexec o sudo si es necesario."""
         if backup_path is None:
             backup_path = EXPORTS_PATH + BACKUP_SUFFIX
         try:
             shutil.copyfile(EXPORTS_PATH, backup_path)
         except PermissionError:
-            # fallback con pkexec
+            # fallback con pkexec o sudo
             res = ExportsManager._run_pkexec(["cp", EXPORTS_PATH, backup_path])
             if res.returncode != 0:
                 raise ExportsError(f"No se pudo crear backup: {res.stderr.strip()}")
@@ -118,7 +137,7 @@ class ExportsManager:
 
     @staticmethod
     def _write_temp_and_move(new_text: str) -> None:
-        """Escribe temp local y mueve a /etc/exports usando pkexec."""
+        """Escribe temp local y mueve a /etc/exports usando pkexec o sudo."""
         fd, tmp_path = tempfile.mkstemp(prefix="exports_tmp_", text=True)
         os.close(fd)
         try:
@@ -128,7 +147,7 @@ class ExportsManager:
             # Backup
             ExportsManager.backup()
 
-            # Mover temp a /etc/exports con pkexec
+            # Mover temp a /etc/exports con pkexec o sudo
             res = ExportsManager._run_pkexec(["mv", tmp_path, EXPORTS_PATH])
             if res.returncode != 0:
                 try: os.remove(tmp_path)
