@@ -6,35 +6,68 @@ import os
 # Asegúrate de tener util.exports_manager y util.generic disponibles
 from util.exports_manager import ExportsManager, ExportsError 
 
-# CLASE DUMMY PARA EVITAR ERRORES SI EL ARCHIVO 'add_directory' NO FUE PROPORCIONADO
-# Se usa para verificar si el directorio existe antes de añadirlo.
+# ====================================================================
+# === 1. CLASE ADD CORREGIDA (Crea directorios si no existen) ========
+# ====================================================================
 class Add:
+    """Clase para manejar verificaciones y creación de directorios."""
     @staticmethod
     def check_directory(ruta):
+        """Verifica si la ruta existe y la crea si es necesario."""
+        # 1. Verificar si la ruta está vacía
+        if not ruta.strip():
+            raise ExportsError("La ruta del directorio no puede estar vacía.")
+            
+        # 2. Verificar si el directorio existe
         if not os.path.isdir(ruta):
-            # En un entorno real, la creación del directorio debería hacerse antes
-            # de llamar a add_entry, pero para la validación esto es suficiente.
-            # raise ExportsError(f"La ruta '{ruta}' no es un directorio válido o no existe.")
-            pass # Permitimos continuar para la prueba si solo falta el archivo
-        print(f"[INFO] El directorio '{ruta}' es válido.")
+            print(f"[INFO] El directorio '{ruta}' no existe. Intentando crearlo...")
+            try:
+                # 3. Crear el directorio si no existe (Requiere permisos de root/sudo)
+                os.makedirs(ruta, mode=0o755, exist_ok=True)
+                print(f"[INFO] Directorio '{ruta}' creado exitosamente.")
+            except OSError as e:
+                # Capturar errores de permiso si no se ejecuta como root
+                raise ExportsError(f"Fallo al crear el directorio '{ruta}': {e}. ⚠️ Debe ejecutar la aplicación con 'sudo'.")
+            
+        print(f"[INFO] El directorio '{ruta}' es válido y existe.")
 
-
+# ====================================================================
+# === 2. CLASE MASTERPANEL (Lógica Principal) ========================
+# ====================================================================
 class MasterPanel:
 
     # ------------------------------------------------------------------
     # --- CRUD HOSTS (Añadir/Editar/Eliminar) ---
-    # --- Modificado para Checkbuttons (Selección Múltiple) ---
     # ------------------------------------------------------------------
 
-    def save_host(self, host_entry, option_vars, is_edit_mode, original_host_ip=""):
-        """Guarda o edita un host para el directorio seleccionado, recolectando opciones de Checkbuttons."""
+    def save_host(self, host_entry, option_vars, is_edit_mode, original_host_ip="", anonuid_val="", anongid_val=""):
+        """Guarda o edita un host, recolectando opciones de Checkbuttons y valores de anonuid/anongid."""
         
         # 1. Obtener Host/IP
         host_ip = host_entry.get().strip()
         
-        # 2. Recolectar opciones marcadas y formar la cadena separada por comas
-        opciones_seleccionadas = [name for name, var in option_vars.items() if var.get()]
-        opciones_raw = ",".join(opciones_seleccionadas)
+        # 2. Recolectar opciones marcadas y construir la cadena de opciones
+        opciones_finales = []
+        for name, var in option_vars.items():
+            if var.get():
+                # Manejar opciones con valor (anonuid/anongid)
+                if name == "anonuid":
+                    if anonuid_val:
+                        if not anonuid_val.isdigit():
+                            messagebox.showerror("Error", "anonuid debe ser un valor numérico.", parent=self.new_host_window)
+                            return
+                        opciones_finales.append(f"anonuid={anonuid_val}")
+                elif name == "anongid":
+                    if anongid_val:
+                        if not anongid_val.isdigit():
+                            messagebox.showerror("Error", "anongid debe ser un valor numérico.", parent=self.new_host_window)
+                            return
+                        opciones_finales.append(f"anongid={anongid_val}")
+                elif name != "anonuid" and name != "anongid":
+                    # Opciones sin valor
+                    opciones_finales.append(name)
+        
+        opciones_raw = ",".join(opciones_finales)
 
         self.new_host_window.destroy()
 
@@ -66,25 +99,27 @@ class MasterPanel:
             for host in current_entry["hosts"]:
                 host_name = host["name"]
                 
-                # Si estamos en modo Edición
+                # Modo Edición: Reemplazar el host antiguo
                 if is_edit_mode and host_name == original_host_ip:
-                    # Reemplazar el host antiguo por el nuevo
                     new_hosts.append(host_expr_to_add)
                     host_ip_exists = True
                     
                 # Si estamos añadiendo o es un host que ya existe y es diferente al original
                 elif host_name != original_host_ip: 
-                    # Si el host a añadir ya existía antes de la operación, lo reemplazamos
                     if not is_edit_mode and host_name == host_ip:
+                        # Si es el host que se está añadiendo/editando (mismo IP), reemplazar
                         new_hosts.append(host_expr_to_add)
                         host_ip_exists = True
                     else:
                         # Mantener el host existente
                         new_hosts.append(f"{host['name']}{host['options']}")
 
-            # Si es un host completamente nuevo
-            if not host_ip_exists or (is_edit_mode and host_ip != original_host_ip and not host_ip_exists):
+            # Si es un host completamente nuevo (y no existía ya en la lista)
+            if not is_edit_mode and not host_ip_exists:
                 new_hosts.append(host_expr_to_add)
+            elif is_edit_mode and host_ip != original_host_ip and not host_ip_exists:
+                 new_hosts.append(host_expr_to_add)
+
 
             new_hosts_expr = ' '.join(new_hosts)
             
@@ -100,7 +135,7 @@ class MasterPanel:
 
 
     def add_host(self):
-        """Abre la ventana para añadir o editar un host, usando Checkbuttons para selección múltiple."""
+        """Abre la ventana para añadir o editar un host, usando Checkbuttons y campos para valores numéricos."""
         seleccion_dir = self.treeview.selection()
         if not seleccion_dir:
             messagebox.showerror("Error", "Debe seleccionar un directorio primero.")
@@ -109,26 +144,35 @@ class MasterPanel:
         # --- Lógica de Detección de Edición ---
         is_edit_mode = False
         host_seleccionado = ""
-        # Lista de opciones por defecto
         opciones_seleccionadas_str = "rw,sync,no_root_squash" 
+        anonuid_val = ""
+        anongid_val = ""
 
         seleccion_host = self.host_treeview.selection()
         if seleccion_host:
             is_edit_mode = True
             host_item = self.host_treeview.item(seleccion_host[0])
             host_seleccionado = host_item["values"][0]
-            # Las opciones vienen como string, le quitamos los paréntesis
             opciones_seleccionadas_str = host_item["values"][1].strip('()') 
             
         opciones_activas = opciones_seleccionadas_str.split(',')
             
+        # --- Extracción de valores de anonuid/anongid para Edición ---
+        if is_edit_mode:
+            for opt in opciones_activas:
+                if '=' in opt:
+                    key, val = opt.split('=', 1)
+                    if key == "anonuid":
+                        anonuid_val = val
+                    elif key == "anongid":
+                        anongid_val = val
+            
         # --- Creación de la Ventana ---
         self.new_host_window = tk.Toplevel(self.ventana)
-        # Ajustamos el tamaño para los Checkbuttons
-        self.new_host_window.geometry("380x350") 
+        self.new_host_window.geometry("400x400") 
         self.new_host_window.title("Edit Host/Options" if is_edit_mode else "Add Host/Options")
         self.new_host_window.config(bg="#dce2ec")
-        utl.centrar_ventana(self.new_host_window, 380, 350)
+        utl.centrar_ventana(self.new_host_window, 400, 400)
 
         # 1. Host/IP/Subred
         tk.Label(self.new_host_window, text="Host/IP/Subred:", font=("Times New Roman", 10, BOLD), bg="#dce2ec").pack(pady=(5,0))
@@ -143,27 +187,23 @@ class MasterPanel:
         options_frame = tk.Frame(self.new_host_window, bg="#dce2ec")
         options_frame.pack(padx=10)
 
-        # Opciones base para NFS
         base_options = [
             "rw", "ro", "sync", "async", 
             "no_root_squash", "root_squash", "all_squash", 
             "no_subtree_check", "subtree_check", 
-            "insecure", "secure",
-            "anonuid", "anongid" # Opciones que pueden requerir edición manual de valor
+            "insecure", "secure"
         ]
         
         # Variables de control para Checkbuttons
         self.option_vars = {} 
         
-
         # Crear Checkbuttons en dos columnas
         col = 0
         row = 0
         for opt_name in base_options:
             var = tk.IntVar()
             
-            # Si estamos editando y la opción ya estaba activa, la marcamos
-            # Solo chequeamos por el nombre, ignorando posibles valores (ej: anonuid=1000)
+            # Chequear si la opción está activa (ignorando valores)
             if any(opt_name == opt.split('=')[0] for opt in opciones_activas):
                 var.set(1) 
             
@@ -179,13 +219,40 @@ class MasterPanel:
                 col = 0
                 row += 1
 
-        # 3. Botones OK/Cancel
+        # 3. Campos para opciones de valor (anonuid/anongid)
+        value_options_frame = tk.Frame(self.new_host_window, bg="#dce2ec")
+        value_options_frame.pack(pady=10)
+
+        # anonuid
+        tk.Label(value_options_frame, text="anonuid:", bg="#dce2ec").grid(row=0, column=0, padx=5, sticky='e')
+        self.anonuid_var = tk.StringVar(value=anonuid_val)
+        self.anonuid_entry = ttk.Entry(value_options_frame, textvariable=self.anonuid_var, width=15)
+        self.anonuid_entry.grid(row=0, column=1, padx=5)
+        # Checkbutton para anonuid (se activa si hay un valor, o se marca explícitamente)
+        self.option_vars["anonuid"] = tk.IntVar(value=1 if anonuid_val else 0)
+
+        # anongid
+        tk.Label(value_options_frame, text="anongid:", bg="#dce2ec").grid(row=1, column=0, padx=5, sticky='e')
+        self.anongid_var = tk.StringVar(value=anongid_val)
+        self.anongid_entry = ttk.Entry(value_options_frame, textvariable=self.anongid_var, width=15)
+        self.anongid_entry.grid(row=1, column=1, padx=5)
+        # Checkbutton para anongid
+        self.option_vars["anongid"] = tk.IntVar(value=1 if anongid_val else 0)
+
+
+        # 4. Botones OK/Cancel
         boton_frame = tk.Frame(self.new_host_window, bg="#dce2ec")
         boton_frame.pack(pady=20)
 
-        # El botón OK llama a save_host con la lista de variables
         boton_ok = tk.Button(boton_frame, text="OK", font=("Times New Roman", 10), bg="#b6c6e7", width=10, height=1,
-                             command=lambda: self.save_host(host_entry, self.option_vars, is_edit_mode, host_seleccionado))
+                             command=lambda: self.save_host(
+                                 host_entry, 
+                                 self.option_vars, 
+                                 is_edit_mode, 
+                                 host_seleccionado,
+                                 anonuid_val=self.anonuid_var.get().strip(),
+                                 anongid_val=self.anongid_var.get().strip()
+                             ))
         boton_ok.pack(side="left", padx=5)
         
         boton_cancel = tk.Button(boton_frame, text="Cancel", font=("Times New Roman", 10), bg="#ccc5c4", width=10, height=1, command=self.new_host_window.destroy)
@@ -230,11 +297,10 @@ class MasterPanel:
                 messagebox.showerror("Error", f"Error inesperado: {str(e)}")
     
     # ------------------------------------------------------------------
-    # --- CRUD DIRECTORIOS (Funciones Originales sin cambios mayores) ---
+    # --- CRUD DIRECTORIOS CORREGIDO ---
     # ------------------------------------------------------------------
 
     def edit_directory(self):
-        # ... Lógica original para editar directorio ...
         try:
             # 1️⃣ Verificar selección
             seleccion = self.treeview.selection()
@@ -248,17 +314,17 @@ class MasterPanel:
             antigua_ruta = path_seleccionado
             print(f"[INFO] Editando directorio: {antigua_ruta}")
 
-            # 2️⃣ Buscar host y opciones actuales
+            # 2️⃣ Buscar y recopilar TODAS las expresiones de hosts
             entries = ExportsManager.list_parsed()
             host_info_list = []
             host_line = ""
-            for e in entries:
-                if e["path"] == path_seleccionado:
-                    for host in e["hosts"]:
-                        host_info_list.append(f"{host.get('name', '')}{host.get('options', '')}")
-                    host_line = ' '.join(host_info_list)
-                    break
+            current_entry = next((e for e in entries if e["path"] == path_seleccionado), None)
 
+            if current_entry:
+                for host in current_entry["hosts"]:
+                    host_info_list.append(f"{host.get('name', '')}{host.get('options', '')}")
+                host_line = ' '.join(host_info_list)
+            
             if not host_info_list:
                 messagebox.showerror("Error", "No se encontraron hosts para el directorio seleccionado.")
                 return
@@ -302,27 +368,32 @@ class MasterPanel:
                         messagebox.showwarning("Advertencia", "Debe ingresar una ruta válida.")
                         return
 
-                    # Verificar o crear directorio
+                    # 🔑 CORRECCIÓN PRINCIPAL: Verifica y crea el directorio si no existe
                     Add.check_directory(ruta_nueva)
 
                     # Mantener mismo host y opciones
                     hosts_expr = host_line
 
-                    # Añadir la nueva entrada
+                    # 🔑 LÓGICA DE RENOMBRE: Eliminar la antigua, Añadir la nueva
+                    
+                    # 1. Eliminar la antigua
+                    ExportsManager.remove_entry(antigua_ruta)
+
+                    # 2. Añadir la nueva entrada
                     ExportsManager.add_entry(ruta_nueva, hosts_expr)
 
-                    messagebox.showinfo("Éxito", f"Se agregó la nueva ruta:\n{ruta_nueva}",parent=self.new_window )
+                    messagebox.showinfo("Éxito", f"Directorio editado:\nDe: {antigua_ruta}\nA: {ruta_nueva}",parent=self.new_window )
                     self.new_window.destroy()
-
-                    # Si se añadió correctamente, eliminar la antigua
-                    ExportsManager.remove_entry(antigua_ruta)
 
                     # Refrescar vista
                     self.actualizar_hosts(None)
                     self.refrescar_treeview()
 
+                except ExportsError as err:
+                    # Captura errores específicos de NFS/filesystem
+                    messagebox.showerror("Error de NFS", f"No se pudo editar el directorio:\n{err}")
                 except Exception as err:
-                    messagebox.showerror("Error", f"No se pudo agregar la nueva ruta:\n{err}")
+                    messagebox.showerror("Error", f"No se pudo editar el directorio:\n{err}")
             
             boton_ok = tk.Button(
                 boton_frame,
@@ -348,9 +419,7 @@ class MasterPanel:
             messagebox.showerror("Error", f"No se pudo editar el directorio:\n{e}")
 
     def refrescar_treeview(self):
-        """
-        Limpia y recarga el Treeview de directorios con las entradas actuales de /etc/exports.
-        """
+        """Limpia y recarga el Treeview de directorios con las entradas actuales de /etc/exports."""
         try:
             # Limpiar Treeview
             for item in self.treeview.get_children():
@@ -396,7 +465,7 @@ class MasterPanel:
         top_frame.pack(pady=5)
 
         label = tk.Label(top_frame, text="Directory to Export", font=("Times New Roman", 10), bg="#dce2ec", anchor="e")
-        label.pack( pady=5  )
+        label.pack( pady=5 )
         new_directory_entry = ttk.Entry(top_frame, font=("Times New Roman", 10))
         new_directory_entry.pack()
 
@@ -410,6 +479,7 @@ class MasterPanel:
 
     def directorio_leido(self, ruta):
         try:
+            # 🔑 Usa la clase Add corregida para crear el directorio
             Add.check_directory(ruta)
             self.host = "*"
             # Opción default para nueva entrada
