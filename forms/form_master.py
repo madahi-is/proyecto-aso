@@ -3,6 +3,7 @@ from tkinter import ttk, messagebox
 from tkinter.font import BOLD
 import util.generic as utl
 from util.exports_manager import ExportsManager
+from util.add_directory import Add
 
 class MasterPanel:
     def add_directory(self):
@@ -29,6 +30,7 @@ class MasterPanel:
         boton_cancel.pack(side="left", padx=5)
 
     def directorio_leido(self, ruta):
+<<<<<<< HEAD
         self.host = "192.168.0.*"
         self.opciones = "Allow"
         self.hosts_expr = f"{self.host}({self.opciones})"
@@ -36,6 +38,15 @@ class MasterPanel:
         self.treeview.insert("", "end", values=(ruta,))
         self.host_treeview.insert("", "end", values=(self.host, self.opciones))
         print(f"Directorio añadido: {ruta} con host {self.hosts_expr}")
+=======
+        Add.check_directory(ruta)
+        self.host = "*"
+        self.opciones = "rw,sync,no_subtree_check"
+        self.hosts_expr = f"{self.host}({self.opciones})"
+        ExportsManager.add_entry(ruta, self.hosts_expr)
+        #self.treeview.insert("", "end", values=(ruta,))
+        #self.host_treeview.insert("", "end", values=("192.168.0.*", "Allow"))
+>>>>>>> 31882b04efbb78234e7c0877f3b499d2a864907d
         self.new_window.destroy()    
         self.add_host()
 
