@@ -6,6 +6,116 @@ from util.exports_manager import ExportsManager
 from util.add_directory import Add
 
 class MasterPanel:
+    def edit_directory(self):
+        try:
+            # 1️⃣ Verificar selección
+            seleccion = self.treeview.selection()
+            if not seleccion:
+                messagebox.showwarning("Advertencia", "Por favor, seleccione un directorio primero.")
+                return
+
+            item_id = seleccion[0]
+            item = self.treeview.item(item_id)
+            path_seleccionado = item["values"][0]
+            antigua_ruta = path_seleccionado
+            print(f"[INFO] Editando directorio: {antigua_ruta}")
+
+            # 2️⃣ Buscar host y opciones actuales
+            entries = ExportsManager.list_parsed()
+            nombre_host, opciones = "", ""
+            for e in entries:
+                if e["path"] == path_seleccionado:
+                    if e["hosts"]:
+                        nombre_host = e["hosts"][0].get("name", "")
+                        opciones = e["hosts"][0].get("options", "")
+                    break
+
+            if not nombre_host:
+                messagebox.showerror("Error", "No se encontraron hosts para el directorio seleccionado.")
+                return
+
+            # 3️⃣ Crear ventana de edición
+            self.new_window = tk.Toplevel(self.ventana)
+            self.new_window.geometry("350x150")
+            self.new_window.title("Edit Directory")
+            self.new_window.config(bg="#dce2ec")
+            utl.centrar_ventana(self.new_window, 350, 150)
+
+            top_frame = tk.Frame(self.new_window, bg="#dce2ec")
+            top_frame.pack(pady=5)
+
+            label = tk.Label(top_frame, text="Directory to Export:", font=("Times New Roman", 10), bg="#dce2ec")
+            label.pack(pady=5)
+
+            # 4️⃣ Campo editable con valor antiguo
+            self.var_directorio = tk.StringVar(value=antigua_ruta)
+            entry_directorio = ttk.Entry(top_frame, font=("Times New Roman", 10), textvariable=self.var_directorio, width=40)
+            entry_directorio.pack()
+
+            # Mostrar host y opciones (solo informativos)
+            info_label = tk.Label(
+                top_frame,
+                text=f"Host: {nombre_host}\nOptions: {opciones}",
+                font=("Times New Roman", 9),
+                bg="#dce2ec",
+                justify="left"
+            )
+            info_label.pack(pady=5)
+
+            # 5️⃣ Botones
+            boton_frame = tk.Frame(self.new_window, bg="#dce2ec")
+            boton_frame.pack(pady=10)
+
+            def confirmar_edicion():
+                try:
+                    ruta_nueva = self.var_directorio.get().strip()
+                    if not ruta_nueva:
+                        messagebox.showwarning("Advertencia", "Debe ingresar una ruta válida.")
+                        return
+
+                    # Verificar o crear directorio
+                    Add.check_directory(ruta_nueva)
+
+                    # Mantener mismo host y opciones
+                    hosts_expr = f"{nombre_host}{opciones}"
+
+                    # Añadir la nueva entrada
+                    ExportsManager.add_entry(ruta_nueva, hosts_expr)
+
+                    messagebox.showinfo("Éxito", f"Se agregó la nueva ruta:\n{ruta_nueva}")
+                    self.new_window.destroy()
+
+                    # Refrescar vista
+                    self.refrescar_treeview()
+                    self.add_host()
+
+                except Exception as err:
+                    messagebox.showerror("Error", f"No se pudo agregar la nueva ruta:\n{err}")
+
+            boton_ok = tk.Button(
+                boton_frame,
+                text="OK",
+                font=("Times New Roman", 10),
+                bg="#b6c6e7",
+                width=10, height=1,
+                command=confirmar_edicion
+            )
+            boton_ok.pack(side="left", padx=5)
+
+            boton_cancel = tk.Button(
+                boton_frame,
+                text="Cancel",
+                font=("Times New Roman", 10),
+                bg="#ccc5c4",
+                width=10, height=1,
+                command=self.new_window.destroy
+            )
+            boton_cancel.pack(side="left", padx=5)
+
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo editar el directorio:\n{e}")
+
+
     def refrescar_treeview(self):
         """
         Limpia y recarga el Treeview de directorios con las entradas actuales de /etc/exports.
@@ -168,7 +278,7 @@ class MasterPanel:
 
         boton_Add = tk.Button(button_frame, text="Add Directory", font=("Times New Roman", 10), bg="#dce2ec",width=12, height=1, command= self.add_directory)
         boton_Add.pack(side="left", padx=5)
-        boton_edit = tk.Button(button_frame, text="Edit", font=("Times New Roman", 10), bg="#dce2ec",width=12, height=1)
+        boton_edit = tk.Button(button_frame, text="Edit", font=("Times New Roman", 10), bg="#dce2ec",width=12, height=1, command=self.edit_directory)
         boton_edit.pack(side="left", padx=5)
         #boton_delete = tk.Button(button_frame, text="Delete", font=("Times New Roman", 10), bg="#dce2ec",width=12, height=1)
         boton_delete = tk.Button(button_frame, text="Delete", font=("Times New Roman", 10), bg="#dce2ec",width=12, height=1, command=lambda: self.delete_directory(self.treeview.item(self.treeview.selection())["values"][0]) )
