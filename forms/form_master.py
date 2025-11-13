@@ -139,132 +139,131 @@ class MasterPanel:
         except Exception as e:
             messagebox.showerror("Error", f"Error inesperado: {str(e)}")
 
-
     def add_host(self):
-        """Abre la ventana para añadir o editar un host, usando Checkbuttons y campos para valores numéricos."""
-        seleccion_dir = self.treeview.selection()
-        if not seleccion_dir:
-            messagebox.showerror("Error", "Debe seleccionar un directorio primero.")
-            return
+            """Abre la ventana para añadir o editar un host, usando Checkbuttons y campos para valores numéricos."""
+            seleccion_dir = self.treeview.selection()
+            if not seleccion_dir:
+                messagebox.showerror("Error", "Debe seleccionar un directorio primero.")
+                return
 
-        # --- Lógica de Detección de Edición ---
-        is_edit_mode = False
-        host_seleccionado = ""
-        opciones_seleccionadas_str = "rw,sync,no_root_squash"
-        anonuid_val = ""
-        anongid_val = ""
+            # --- Lógica de Detección de Edición ---
+            is_edit_mode = False
+            host_seleccionado = ""
+            opciones_seleccionadas_str = "rw,sync,no_root_squash"
+            anonuid_val = ""
+            anongid_val = ""
 
-        seleccion_host = self.host_treeview.selection()
-        if seleccion_host:
-            is_edit_mode = True
-            host_item = self.host_treeview.item(seleccion_host[0])
-            host_seleccionado = host_item["values"][0]
-            opciones_seleccionadas_str = host_item["values"][1].strip('()')
+            seleccion_host = self.host_treeview.selection()
+            if seleccion_host:
+                is_edit_mode = True
+                host_item = self.host_treeview.item(seleccion_host[0])
+                host_seleccionado = host_item["values"][0]
+                opciones_seleccionadas_str = host_item["values"][1].strip('()')
 
-        opciones_activas = opciones_seleccionadas_str.split(',')
+            opciones_activas = opciones_seleccionadas_str.split(',')
 
-        # --- Extracción de valores de anonuid/anongid para Edición ---
-        if is_edit_mode:
-            for opt in opciones_activas:
-                if '=' in opt:
-                    key, val = opt.split('=', 1)
-                    if key == "anonuid":
-                        anonuid_val = val
-                    elif key == "anongid":
-                        anongid_val = val
+            # --- Extracción de valores de anonuid/anongid para Edición ---
+            if is_edit_mode:
+                for opt in opciones_activas:
+                    if '=' in opt:
+                        key, val = opt.split('=', 1)
+                        if key == "anonuid":
+                            anonuid_val = val
+                        elif key == "anongid":
+                            anongid_val = val
 
-        # --- Creación de la Ventana ---
-        self.new_host_window = tk.Toplevel(self.ventana)
-        self.new_host_window.geometry("400x400")
-        self.new_host_window.title("Edit Host/Options" if is_edit_mode else "Add Host/Options")
-        self.new_host_window.config(bg="#dce2ec")
-        utl.centrar_ventana(self.new_host_window, 400, 400)
+            # --- Creación de la Ventana ---
+            self.new_host_window = tk.Toplevel(self.ventana)
+            self.new_host_window.geometry("400x400")
+            self.new_host_window.title("Edit Host/Options" if is_edit_mode else "Add Host/Options")
+            self.new_host_window.config(bg="#dce2ec")
+            utl.centrar_ventana(self.new_host_window, 400, 400)
 
-        # 1. Host/IP/Subred
-        tk.Label(self.new_host_window, text="Host/IP/Subred:", font=("Times New Roman", 10, BOLD), bg="#dce2ec").pack(pady=(5,0))
-        host_entry = ttk.Entry(self.new_host_window, font=("Times New Roman", 10), width=30)
-        host_entry.pack()
-        if is_edit_mode:
-            host_entry.insert(0, host_seleccionado)
+            # 1. Host/IP/Subred
+            tk.Label(self.new_host_window, text="Host/IP/Subred:", font=("Times New Roman", 10, BOLD),
+                     bg="#dce2ec").pack(pady=(5, 0))
+            host_entry = ttk.Entry(self.new_host_window, font=("Times New Roman", 10), width=30)
+            host_entry.pack()
+            if is_edit_mode:
+                host_entry.insert(0, host_seleccionado)
 
-        # 2. Opciones (Usando Checkbuttons)
-        tk.Label(self.new_host_window, text="Seleccionar Opciones (NFS Export Options):", font=("Times New Roman", 10, BOLD), bg="#dce2ec").pack(pady=(10,5))
+            # 2. Opciones (Usando Checkbuttons)
+            tk.Label(self.new_host_window, text="Seleccionar Opciones (NFS Export Options):",
+                     font=("Times New Roman", 10, BOLD), bg="#dce2ec").pack(pady=(10, 5))
 
-        options_frame = tk.Frame(self.new_host_window, bg="#dce2ec")
-        options_frame.pack(padx=10)
+            options_frame = tk.Frame(self.new_host_window, bg="#dce2ec")
+            options_frame.pack(padx=10)
 
-        base_options = [
-            "rw", "ro", "sync", "async",
-            "no_root_squash", "root_squash", "all_squash",
-            "no_subtree_check", "subtree_check",
-            "insecure", "secure"
-        ]
+            base_options = [
+                "rw", "ro", "sync", "async",
+                "no_root_squash", "root_squash", "all_squash",
+                "no_subtree_check", "subtree_check",
+                "insecure", "secure"
+            ]
 
-        # Variables de control para Checkbuttons
-        self.option_vars = {}
+            # Variables de control para Checkbuttons
+            self.option_vars = {}
 
-        # Crear Checkbuttons en dos columnas
-        col = 0
-        row = 0
-        for opt_name in base_options:
-            var = tk.IntVar()
+            # Crear Checkbuttons en dos columnas
+            col = 0
+            row = 0
+            for opt_name in base_options:
+                var = tk.IntVar()
 
-            # Chequear si la opción está activa (ignorando valores)
-            if any(opt_name == opt.split('=')[0] for opt in opciones_activas):
-                var.set(1)
+                # Chequear si la opción está activa (ignorando valores)
+                if any(opt_name == opt.split('=')[0] for opt in opciones_activas):
+                    var.set(1)
 
-            self.option_vars[opt_name] = var
+                self.option_vars[opt_name] = var
 
-            cb = ttk.Checkbutton(options_frame, text=opt_name, variable=var, onvalue=1, offvalue=0)
+                cb = ttk.Checkbutton(options_frame, text=opt_name, variable=var, onvalue=1, offvalue=0)
 
-            # Distribución en dos columnas
-            cb.grid(row=row, column=col, sticky='w', padx=5, pady=2)
+                # Distribución en dos columnas
+                cb.grid(row=row, column=col, sticky='w', padx=5, pady=2)
 
-            col += 1
-            if col > 1:
-                col = 0
-                row += 1
+                col += 1
+                if col > 1:
+                    col = 0
+                    row += 1
 
-        # 3. Campos para opciones de valor (anonuid/anongid)
-        value_options_frame = tk.Frame(self.new_host_window, bg="#dce2ec")
-        value_options_frame.pack(pady=10)
+            # 3. Campos para opciones de valor (anonuid/anongid)
+            value_options_frame = tk.Frame(self.new_host_window, bg="#dce2ec")
+            value_options_frame.pack(pady=10)
 
-        # anonuid
-        tk.Label(value_options_frame, text="anonuid:", bg="#dce2ec").grid(row=0, column=0, padx=5, sticky='e')
-        self.anonuid_var = tk.StringVar(value=anonuid_val)
-        self.anonuid_entry = ttk.Entry(value_options_frame, textvariable=self.anonuid_var, width=15)
-        self.anonuid_entry.grid(row=0, column=1, padx=5)
-        # Checkbutton para anonuid (se activa si hay un valor, o se marca explícitamente)
-        self.option_vars["anonuid"] = tk.IntVar(value=1 if anonuid_val else 0)
+            # anonuid
+            tk.Label(value_options_frame, text="anonuid:", bg="#dce2ec").grid(row=0, column=0, padx=5, sticky='e')
+            self.anonuid_var = tk.StringVar(value=anonuid_val)
+            self.anonuid_entry = ttk.Entry(value_options_frame, textvariable=self.anonuid_var, width=15)
+            self.anonuid_entry.grid(row=0, column=1, padx=5)
+            # Checkbutton para anonuid (se activa si hay un valor, o se marca explícitamente)
+            self.option_vars["anonuid"] = tk.IntVar(value=1 if anonuid_val else 0)
 
-        # anongid
-        tk.Label(value_options_frame, text="anongid:", bg="#dce2ec").grid(row=1, column=0, padx=5, sticky='e')
-        self.anongid_var = tk.StringVar(value=anongid_val)
-        self.anongid_entry = ttk.Entry(value_options_frame, textvariable=self.anongid_var, width=15)
-        self.anongid_entry.grid(row=1, column=1, padx=5)
-        # Checkbutton para anongid
-        self.option_vars["anongid"] = tk.IntVar(value=1 if anongid_val else 0)
+            # anongid
+            tk.Label(value_options_frame, text="anongid:", bg="#dce2ec").grid(row=1, column=0, padx=5, sticky='e')
+            self.anongid_var = tk.StringVar(value=anongid_val)
+            self.anongid_entry = ttk.Entry(value_options_frame, textvariable=self.anongid_var, width=15)
+            self.anongid_entry.grid(row=1, column=1, padx=5)
+            # Checkbutton para anongid
+            self.option_vars["anongid"] = tk.IntVar(value=1 if anongid_val else 0)
 
+            # 4. Botones OK/Cancel
+            boton_frame = tk.Frame(self.new_host_window, bg="#dce2ec")
+            boton_frame.pack(pady=20)
 
-        # 4. Botones OK/Cancel
-        boton_frame = tk.Frame(self.new_host_window, bg="#dce2ec")
-        boton_frame.pack(pady=20)
+            boton_ok = tk.Button(boton_frame, text="OK", font=("Times New Roman", 10), bg="#b6c6e7", width=10, height=1,
+                                 command=lambda: self.save_host(
+                                     host_entry,
+                                     self.option_vars,
+                                     is_edit_mode,
+                                     host_seleccionado,
+                                     anonuid_val=self.anonuid_var.get().strip(),
+                                     anongid_val=self.anongid_var.get().strip()
+                                 ))
+            boton_ok.pack(side="left", padx=5)
 
-        boton_ok = tk.Button(boton_frame, text="OK", font=("Times New Roman", 10), bg="#b6c6e7", width=10, height=1,
-                             command=lambda: self.save_host(
-                                 host_entry,
-                                 self.option_vars,
-                                 is_edit_mode,
-                                 host_seleccionado,
-                                 anonuid_val=self.anonuid_var.get().strip(),
-                                 anongid_val=self.anongid_var.get().strip()
-                             ))
-        boton_ok.pack(side="left", padx=5)
-
-        boton_cancel = tk.Button(boton_frame, text="Cancel", font=("Times New Roman", 10), bg="#ccc5c4", width=10, height=1, command=self.new_host_window.destroy)
-        boton_cancel.pack(side="left", padx=5)
-
-
+            boton_cancel = tk.Button(boton_frame, text="Cancel", font=("Times New Roman", 10), bg="#ccc5c4", width=10,
+                                     height=1, command=self.new_host_window.destroy)
+            boton_cancel.pack(side="left", padx=5)
     def delete_host(self):
         """Elimina el host seleccionado del directorio."""
         seleccion_dir = self.treeview.selection()
