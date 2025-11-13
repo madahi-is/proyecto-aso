@@ -29,8 +29,13 @@ class MasterPanel:
         boton_cancel.pack(side="left", padx=5)
 
     def directorio_leido(self, ruta):
+        self.host = "192.168.0.*"
+        self.opciones = "Allow"
+        self.hosts_expr = f"{self.host}({self.opciones})"
+        ExportsManager.add_entry(ruta, self.hosts_expr)
         self.treeview.insert("", "end", values=(ruta,))
-        self.host_treeview.insert("", "end", values=("192.168.0.*", "Allow"))
+        self.host_treeview.insert("", "end", values=(self.host, self.opciones))
+        print(f"Directorio añadido: {ruta} con host {self.hosts_expr}")
         self.new_window.destroy()    
         self.add_host()
 
