@@ -22,6 +22,10 @@ class MasterPanel:
         except Exception as err:
             print(f"[ERROR] No se pudo leer /etc/exports: {err}")
 
+    def delete_directory(self, ruta):
+        ExportsManager.remove_entry(ruta)
+        self.refrescar_treeview() 
+
     def add_directory(self):
         self.new_window = tk.Toplevel(self.ventana)
         self.new_window.geometry("300x100")
@@ -166,7 +170,8 @@ class MasterPanel:
         boton_Add.pack(side="left", padx=5)
         boton_edit = tk.Button(button_frame, text="Edit", font=("Times New Roman", 10), bg="#dce2ec",width=12, height=1)
         boton_edit.pack(side="left", padx=5)
-        boton_delete = tk.Button(button_frame, text="Delete", font=("Times New Roman", 10), bg="#dce2ec",width=12, height=1)
+        #boton_delete = tk.Button(button_frame, text="Delete", font=("Times New Roman", 10), bg="#dce2ec",width=12, height=1)
+        boton_delete = tk.Button(button_frame, text="Delete", font=("Times New Roman", 10), bg="#dce2ec",width=12, height=1, command=lambda: self.delete_directory(self.treeview.item(self.treeview.selection())["values"][0]) )
         boton_delete.pack(side="left", padx=5)
         
         #OPCIONES DE HOST
