@@ -23,10 +23,16 @@ class MasterPanel:
         boton_frame = tk.Frame(self.new_window, bg="#dce2ec")
         boton_frame.pack(pady=10)
 
-        boton_ok = tk.Button(boton_frame, text="OK", font=("Times New Roman", 10), bg="#b6c6e7", width=10, height=1)
+        boton_ok = tk.Button(boton_frame, text="OK", font=("Times New Roman", 10), bg="#b6c6e7", width=10, height=1,command=lambda: self.directorio_leido(new_directory_entry.get()))
         boton_ok.pack(side="left", padx=5)
         boton_cancel = tk.Button(boton_frame, text="Cancel", font=("Times New Roman", 10), bg="#ccc5c4", width=10, height=1, command=self.new_window.destroy)
         boton_cancel.pack(side="left", padx=5)
+
+    def directorio_leido(self, ruta):
+        self.treeview.insert("", "end", values=(ruta,))
+        self.host_treeview.insert("", "end", values=("192.168.0.*", "Allow"))
+        self.new_window.destroy()    
+        self.add_host()
 
 
     def add_host(self):
