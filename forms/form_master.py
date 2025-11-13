@@ -6,6 +6,22 @@ from util.exports_manager import ExportsManager
 from util.add_directory import Add
 
 class MasterPanel:
+    def refrescar_treeview(self):
+        """
+        Limpia y recarga el Treeview de directorios con las entradas actuales de /etc/exports.
+        """
+        try:
+            # Limpiar Treeview
+            for item in self.treeview.get_children():
+                self.treeview.delete(item)
+
+            # Cargar entradas actualizadas
+            entries = ExportsManager.list_parsed()
+            for e in entries:
+                self.treeview.insert("", "end", values=(e["path"],))
+        except Exception as err:
+            print(f"[ERROR] No se pudo leer /etc/exports: {err}")
+
     def add_directory(self):
         self.new_window = tk.Toplevel(self.ventana)
         self.new_window.geometry("300x100")
@@ -35,9 +51,9 @@ class MasterPanel:
         self.opciones = "rw,sync,no_subtree_check"
         self.hosts_expr = f"{self.host}({self.opciones})"
         ExportsManager.add_entry(ruta, self.hosts_expr)
-        #self.treeview.insert("", "end", values=(ruta,))
-        #self.host_treeview.insert("", "end", values=("192.168.0.*", "Allow"))
-        self.new_window.destroy()    
+        self.new_window.destroy()
+        # Refrescar Treeview
+        self.refrescar_treeview()    
         self.add_host()
 
 
