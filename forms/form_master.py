@@ -82,10 +82,14 @@ class MasterPanel:
                     # Añadir la nueva entrada
                     ExportsManager.add_entry(ruta_nueva, hosts_expr)
 
-                    messagebox.showinfo("Éxito", f"Se agregó la nueva ruta:\n{ruta_nueva}")
+                    messagebox.showinfo("Éxito", f"Se agregó la nueva ruta:\n{ruta_nueva}",parent=self.new_window )
                     self.new_window.destroy()
 
+                    # Si se añadió correctamente, eliminar la antigua
+                    ExportsManager.remove_entry(antigua_ruta)
+
                     # Refrescar vista
+                    self.actualizar_hosts(None)
                     self.refrescar_treeview()
                     self.add_host()
 
