@@ -1,0 +1,116 @@
+---
+- name: Configuración de cliente NFS para proyecto-aso
+  hosts: all
+  become: yes
+
+  vars:
+    nfs_remote_path: "/srv/nfs/app"
+    nfs_local_mount: "/opt/nfs-app-aso"
+    project_source: "proyecto-aso"  # Directorio del proyecto en la máquina master
+
+  tasks:
+    - name: Desactivar PackageKit (evita bloqueos de zypper)
+      ansible.builtin.systemd:
+        name: packagekit
+        state: stopped
+        enabled: no
+      ignore_errors: yes
+
+    - name: Actualizar repositorios
+      ansible.builtin.zypper:
+        name: '*'
+        state: latest
+        update_cache: yes
+      register: _refresh
+      until: _refresh is succeeded
+      retries: 3
+      delay: 5
+
+    - name: Instalar NFS client y dependencias de Python
+      ansible.builtin.zypper:
+        name:
+          - nfs-kernel-server
+          - nfs-client
+          - python3
+          - python3-pip
+          - python3-tk
+          - python3-Pillow
+          - python3-Pillow-tk
+          - xorg-x11-server-extra  # Necesario para aplicaciones GUI
+          - xhost  # Para permisos X11
+        state: present
+
+    - name: Iniciar y habilitar rpcbind
+      ansible.builtin.systemd:
+        name: rpcbind
+        enabled: yes
+        state: started
+
+    - name: Iniciar y habilitar nfs-server
+      ansible.builtin.systemd:
+        name: nfs-server
+        enabled: yes
+        state: started
+
+    - name: Crear directorio de montaje local
+      ansible.builtin.file:
+        path: "{{ nfs_local_mount }}"
+        state: directory
+        mode: "0755"
+
+    - name: Copiar proyecto desde la máquina master al directorio montado
+      ansible.builtin.copy:
+        src: "{{ project_source }}/"
+        dest: "{{ nfs_local_mount }}/"
+        owner: root
+        group: root
+        mode: "0755"
+      become: yes
+
+    - name: Instalar dependencias de Python del proyecto
+      ansible.builtin.pip:
+        requirements: "{{ nfs_local_mount }}/requirements.txt"
+        executable: pip3
+      ignore_errors: yes  # Por si requirements.txt no existe o ya está instalado
+
+    - name: Crear script ejecutable nfs-app-aso en /usr/local/bin
+      ansible.builtin.copy:
+        dest: /usr/local/bin/nfs-app-aso
+        mode: "0755"
+        owner: root
+        group: root
+        content: |
+          #!/bin/bash
+          # Script para ejecutar la aplicación proyecto-aso desde NFS
+          
+          # Configurar DISPLAY si no está definido
+          if [ -z "$DISPLAY" ]; then
+            export DISPLAY=:0
+          fi
+          
+          # Permitir conexiones X11 del usuario actual
+          if command -v xhost &> /dev/null; then
+            xhost +local: 2>/dev/null || true
+          fi
+          
+          # Cambiar al directorio del proyecto y ejecutar
+          cd {{ nfs_local_mount }} || exit 1
+          exec python3 main.py "$@"
+
+    - name: Verificar que el comando está disponible
+      ansible.builtin.command: which nfs-app-aso
+      register: cmd_check
+      changed_when: false
+
+    - name: Mensaje final
+      ansible.builtin.debug:
+        msg: |
+          Cliente NFS configurado correctamente.
+          
+           Aplicación montada en: {{ nfs_local_mount }}
+           Comando disponible: nfs-app-aso <--------------
+          
+          Para ejecutar la aplicación, simplemente escribe:
+            nfs-app-aso
+          
+          Servidor NFS: {{ nfs_server_ip }}:{{ nfs_remote_path }}
