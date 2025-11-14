@@ -5,3 +5,7 @@
 # Ignorar archivos o carpetas específicas
 sudo
 zypper
+.venv
+.idea
+.vscode
+.DS_Store
