@@ -220,7 +220,8 @@ class MountManager:
             if result.returncode == 0:
                 # Verificar si la ruta específica está en los exports
                 for line in result.stdout.split('\n'):
-                    if remote_path in line:
+                    """ la linea extraida se vera asi: /srv/nfs/data   (everyone)"""
+                    if remote_path in line.split()[0]:
                         return True
                 # Si no encontramos la ruta exacta pero showmount funcionó
                 return True
