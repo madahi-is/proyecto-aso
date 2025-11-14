@@ -150,8 +150,7 @@ class MasterPanel:
             is_edit_mode = False
             host_seleccionado = ""
             opciones_seleccionadas_str = "rw,sync,no_root_squash"
-            anonuid_val = ""
-            anongid_val = ""
+
 
             seleccion_host = self.host_treeview.selection()
             if seleccion_host:
@@ -162,22 +161,13 @@ class MasterPanel:
 
             opciones_activas = opciones_seleccionadas_str.split(',')
 
-            # --- Extracción de valores de anonuid/anongid para Edición ---
-            if is_edit_mode:
-                for opt in opciones_activas:
-                    if '=' in opt:
-                        key, val = opt.split('=', 1)
-                        if key == "anonuid":
-                            anonuid_val = val
-                        elif key == "anongid":
-                            anongid_val = val
-
             # --- Creación de la Ventana ---
             self.new_host_window = tk.Toplevel(self.ventana)
-            self.new_host_window.geometry("400x400")
+            # Ajustamos el tamaño para los Checkbuttons
+            self.new_host_window.geometry("380x350")
             self.new_host_window.title("Edit Host/Options" if is_edit_mode else "Add Host/Options")
             self.new_host_window.config(bg="#dce2ec")
-            utl.centrar_ventana(self.new_host_window, 400, 400)
+            utl.centrar_ventana(self.new_host_window, 380, 350)
 
             # 1. Host/IP/Subred
             tk.Label(self.new_host_window, text="Host/IP/Subred:", font=("Times New Roman", 10, BOLD),
@@ -194,11 +184,13 @@ class MasterPanel:
             options_frame = tk.Frame(self.new_host_window, bg="#dce2ec")
             options_frame.pack(padx=10)
 
+            # Opciones base para NFS
             base_options = [
                 "rw", "ro", "sync", "async",
                 "no_root_squash", "root_squash", "all_squash",
                 "no_subtree_check", "subtree_check",
-                "insecure", "secure"
+                "insecure", "secure",
+                "anonuid", "anongid"  # Opciones que pueden requerir edición manual de valor
             ]
 
             # Variables de control para Checkbuttons
@@ -210,7 +202,8 @@ class MasterPanel:
             for opt_name in base_options:
                 var = tk.IntVar()
 
-                # Chequear si la opción está activa (ignorando valores)
+                # Si estamos editando y la opción ya estaba activa, la marcamos
+                # Solo chequeamos por el nombre, ignorando posibles valores (ej: anonuid=1000)
                 if any(opt_name == opt.split('=')[0] for opt in opciones_activas):
                     var.set(1)
 
@@ -226,39 +219,14 @@ class MasterPanel:
                     col = 0
                     row += 1
 
-            # 3. Campos para opciones de valor (anonuid/anongid)
-            value_options_frame = tk.Frame(self.new_host_window, bg="#dce2ec")
-            value_options_frame.pack(pady=10)
-
-            # anonuid
-            tk.Label(value_options_frame, text="anonuid:", bg="#dce2ec").grid(row=0, column=0, padx=5, sticky='e')
-            self.anonuid_var = tk.StringVar(value=anonuid_val)
-            self.anonuid_entry = ttk.Entry(value_options_frame, textvariable=self.anonuid_var, width=15)
-            self.anonuid_entry.grid(row=0, column=1, padx=5)
-            # Checkbutton para anonuid (se activa si hay un valor, o se marca explícitamente)
-            self.option_vars["anonuid"] = tk.IntVar(value=1 if anonuid_val else 0)
-
-            # anongid
-            tk.Label(value_options_frame, text="anongid:", bg="#dce2ec").grid(row=1, column=0, padx=5, sticky='e')
-            self.anongid_var = tk.StringVar(value=anongid_val)
-            self.anongid_entry = ttk.Entry(value_options_frame, textvariable=self.anongid_var, width=15)
-            self.anongid_entry.grid(row=1, column=1, padx=5)
-            # Checkbutton para anongid
-            self.option_vars["anongid"] = tk.IntVar(value=1 if anongid_val else 0)
-
-            # 4. Botones OK/Cancel
+            # 3. Botones OK/Cancel
             boton_frame = tk.Frame(self.new_host_window, bg="#dce2ec")
             boton_frame.pack(pady=20)
 
+            # El botón OK llama a save_host con la lista de variables
             boton_ok = tk.Button(boton_frame, text="OK", font=("Times New Roman", 10), bg="#b6c6e7", width=10, height=1,
-                                 command=lambda: self.save_host(
-                                     host_entry,
-                                     self.option_vars,
-                                     is_edit_mode,
-                                     host_seleccionado,
-                                     anonuid_val=self.anonuid_var.get().strip(),
-                                     anongid_val=self.anongid_var.get().strip()
-                                 ))
+                                 command=lambda: self.save_host(host_entry, self.option_vars, is_edit_mode,
+                                                                host_seleccionado))
             boton_ok.pack(side="left", padx=5)
 
             boton_cancel = tk.Button(boton_frame, text="Cancel", font=("Times New Roman", 10), bg="#ccc5c4", width=10,
