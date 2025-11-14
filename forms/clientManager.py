@@ -473,21 +473,21 @@ class ClientManagerPanel:
                 font=("Times New Roman", 10), bg="#dce2ec").grid(row=0, column=0, sticky="w", pady=5)
         server_entry = ttk.Entry(fields_frame, font=("Times New Roman", 10), width=35)
         server_entry.grid(row=0, column=1, pady=5, padx=5)
-        server_entry.insert(0, "192.168.1.1")  # Valor por defecto
+        server_entry.insert(0, "192.168.5.242")  # IP del servidor actual
 
         # Remote Path
         tk.Label(fields_frame, text="Remote Path:",
                 font=("Times New Roman", 10), bg="#dce2ec").grid(row=1, column=0, sticky="w", pady=5)
         remote_entry = ttk.Entry(fields_frame, font=("Times New Roman", 10), width=35)
         remote_entry.grid(row=1, column=1, pady=5, padx=5)
-        remote_entry.insert(0, "/srv/nfs/compartido")  # Valor por defecto
+        remote_entry.insert(0, "/srv/nfs/compartido")
 
         # Mount Point
         tk.Label(fields_frame, text="Local Mount Point:",
                 font=("Times New Roman", 10), bg="#dce2ec").grid(row=2, column=0, sticky="w", pady=5)
         mount_entry = ttk.Entry(fields_frame, font=("Times New Roman", 10), width=35)
         mount_entry.grid(row=2, column=1, pady=5, padx=5)
-        mount_entry.insert(0, "/mnt/nfs/compartido")  # Valor por defecto
+        mount_entry.insert(0, "/mnt/nfs/compartido")
 
         # Options preset
         tk.Label(fields_frame, text="Mount Options Preset:",
@@ -507,7 +507,7 @@ class ClientManagerPanel:
         custom_entry = ttk.Entry(fields_frame, font=("Times New Roman", 10), width=35)
         custom_entry.grid(row=4, column=1, pady=5, padx=5)
 
-        # Test button
+        # Test button - MEJORADO
         def test_connection():
             server = server_entry.get().strip()
             remote = remote_entry.get().strip()
@@ -515,14 +515,71 @@ class ClientManagerPanel:
                 messagebox.showwarning("Advertencia", "Ingrese servidor y ruta remota", parent=dialog)
                 return
 
-            messagebox.showinfo("Probando", f"Probando conexión a {server}...", parent=dialog)
-            if MountManager.test_mount(server, remote):
-                messagebox.showinfo("Éxito", "Recurso NFS accesible", parent=dialog)
-            else:
-                messagebox.showerror("Error", "No se puede acceder al recurso NFS", parent=dialog)
+            # Crear ventana de progreso
+            test_dialog = tk.Toplevel(dialog)
+            test_dialog.title("Probando conexión")
+            test_dialog.geometry("450x250")
+            test_dialog.config(bg="#dce2ec")
+            utl.centrar_ventana(test_dialog, 450, 250)
 
-        tk.Button(fields_frame, text="Test Connection", font=("Times New Roman", 9),
-                 bg="#9C27B0", fg="white", width=20,
+            tk.Label(test_dialog, text=f"Probando conexión a {server}...",
+                    font=("Times New Roman", 11, BOLD), bg="#dce2ec").pack(pady=10)
+
+            result_text = tk.Text(test_dialog, height=10, width=50, font=("Courier", 9))
+            result_text.pack(padx=10, pady=10)
+
+            def do_test():
+                result_text.insert("end", f"1. Verificando conectividad con ping...\n")
+                result_text.update()
+
+                try:
+                    # Test ping
+                    ping_result = subprocess.run(
+                        ["ping", "-c", "1", "-W", "2", server],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        timeout=3
+                    )
+                    if ping_result.returncode == 0:
+                        result_text.insert("end", "   ✓ Ping exitoso\n", "success")
+                    else:
+                        result_text.insert("end", "   ✗ No responde a ping (puede estar bloqueado)\n", "warning")
+                    result_text.update()
+                except:
+                    result_text.insert("end", "   ✗ Error en ping\n", "warning")
+
+                result_text.insert("end", f"\n2. Verificando exports con showmount...\n")
+                result_text.update()
+
+                # Test showmount
+                test_result = MountManager.test_mount(server, remote, timeout=8)
+                if test_result:
+                    result_text.insert("end", f"   ✓ Recurso NFS accesible\n", "success")
+                    result_text.insert("end", f"   La ruta {remote} está disponible\n", "success")
+                else:
+                    result_text.insert("end", "   ⚠ showmount falló o no encontró la ruta\n", "warning")
+                    result_text.insert("end", "   NOTA: Esto NO significa que el montaje fallará.\n", "info")
+                    result_text.insert("end", "   El montaje puede funcionar aun si este test falla.\n", "info")
+
+                result_text.insert("end", f"\n3. Recomendación:\n")
+                result_text.insert("end", "   Puede intentar montar directamente.\n", "info")
+                result_text.insert("end", "   El test showmount a veces falla por firewall.\n", "info")
+
+                result_text.tag_config("success", foreground="green")
+                result_text.tag_config("warning", foreground="orange")
+                result_text.tag_config("info", foreground="blue")
+                result_text.update()
+
+            # Ejecutar test en thread para no bloquear UI
+            import threading
+            threading.Thread(target=do_test, daemon=True).start()
+
+            tk.Button(test_dialog, text="Cerrar", font=("Times New Roman", 10),
+                     bg="#2196F3", fg="white", width=15,
+                     command=test_dialog.destroy).pack(pady=10)
+
+        tk.Button(fields_frame, text="Test Connection (Opcional)", font=("Times New Roman", 9),
+                 bg="#9C27B0", fg="white", width=25,
                  command=test_connection).grid(row=5, column=0, columnspan=2, pady=10)
 
         # Botones de acción
@@ -544,19 +601,22 @@ class ClientManagerPanel:
                     preset_name = options_var.get()
                     options = presets.get(preset_name, "rw,sync")
 
-                # Montar
+                # Montar directamente sin test previo
+                print(f"[INFO] Intentando montar {server}:{remote} en {mount_point}")
                 MountManager.mount_nfs(server, remote, mount_point, options)
                 dialog.destroy()
-                messagebox.showinfo("Éxito", f"Montado exitosamente en:\n{mount_point}")
+                messagebox.showinfo("Éxito", f"Montado exitosamente en:\n{mount_point}\n\nPuede acceder a los archivos en esa ruta.")
                 self.refresh_mounts()
 
             except MountError as e:
-                messagebox.showerror("Error", f"No se pudo montar:\n{e}", parent=dialog)
+                error_msg = str(e)
+                messagebox.showerror("Error de Montaje", f"No se pudo montar:\n\n{error_msg}\n\nVerifique:\n- Servicio NFS corriendo en servidor\n- Ruta exportada correctamente\n- Permisos de red y firewall", parent=dialog)
+                print(f"[ERROR] {error_msg}")
 
         button_frame = tk.Frame(dialog, bg="#dce2ec")
         button_frame.pack(pady=10)
 
-        tk.Button(button_frame, text="Mount", font=("Times New Roman", 10),
+        tk.Button(button_frame, text="Mount", font=("Times New Roman", 10, BOLD),
                  bg="#4CAF50", fg="white", width=12,
                  command=do_mount).pack(side="left", padx=5)
 

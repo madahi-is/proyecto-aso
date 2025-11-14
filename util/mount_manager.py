@@ -230,6 +230,7 @@ class MountManager:
         except subprocess.TimeoutExpired:
             return False
         except Exception:
+
             return False
 
     @staticmethod
