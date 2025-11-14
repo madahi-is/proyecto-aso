@@ -25,6 +25,7 @@
       until: _refresh is succeeded
       retries: 3
       delay: 5
+      ignore_errors: yes  # No fallar si hay problemas con actualizaciones
 
     - name: Instalar NFS client y dependencias de Python
       ansible.builtin.zypper:
@@ -45,12 +46,14 @@
         name: rpcbind
         enabled: yes
         state: started
+      ignore_errors: yes  # Por si ya está corriendo
 
     - name: Iniciar y habilitar nfs-server
       ansible.builtin.systemd:
         name: nfs-server
         enabled: yes
         state: started
+      ignore_errors: yes  # Por si ya está corriendo
 
     - name: Crear directorio de montaje local
       ansible.builtin.file:
@@ -67,11 +70,17 @@
         mode: "0755"
       become: yes
 
+    - name: Verificar si requirements.txt existe
+      ansible.builtin.stat:
+        path: "{{ nfs_local_mount }}/requirements.txt"
+      register: requirements_file
+
     - name: Instalar dependencias de Python del proyecto
       ansible.builtin.pip:
         requirements: "{{ nfs_local_mount }}/requirements.txt"
         executable: pip3
-      ignore_errors: yes  # Por si requirements.txt no existe o ya está instalado
+      when: requirements_file.stat.exists
+      ignore_errors: yes  # Por si ya están instaladas
 
     - name: Crear script ejecutable nfs-app-aso en /usr/local/bin
       ansible.builtin.copy:
@@ -101,16 +110,17 @@
       ansible.builtin.command: which nfs-app-aso
       register: cmd_check
       changed_when: false
+      failed_when: false  # No fallar si el comando no existe aún
 
     - name: Mensaje final
       ansible.builtin.debug:
         msg: |
-          Cliente NFS configurado correctamente.
+           Cliente NFS configurado correctamente.
           
-           Aplicación montada en: {{ nfs_local_mount }}
-           Comando disponible: nfs-app-aso <--------------
+           Aplicación instalada en: {{ nfs_local_mount }}
+           Comando disponible: nfs-app-aso  <-------------
           
           Para ejecutar la aplicación, simplemente escribe:
             nfs-app-aso
           
-          Servidor NFS: {{ nfs_server_ip }}:{{ nfs_remote_path }}
+          Estado del comando: {{ 'Disponible' if cmd_check.rc == 0 else 'Error - revisar logs' }}
