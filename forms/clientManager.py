@@ -31,15 +31,49 @@ class ClientManagerPanel:
             self.ventana.mainloop()
 
     def setup_ui(self):
-        """Configura la interfaz de usuario"""
+        """Configura la interfaz de usuario CON SCROLL"""
         # Fondo
         bg_label = tk.Label(self.ventana, bg="#dce2ec")
         bg_label.place(x=0, y=0, relheight=1, relwidth=1)
 
-        # Frame principal con scroll
-        main_frame = tk.Frame(self.ventana, bg="#dce2ec")
-        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
+        # ======== CREAR CANVAS Y SCROLLBAR ========
+        # Canvas principal que contendrá todo
+        canvas = tk.Canvas(self.ventana, bg="#dce2ec", highlightthickness=0)
+        canvas.pack(side="left", fill="both", expand=True, padx=(20, 0), pady=20)
 
+        # Scrollbar vertical
+        scrollbar = ttk.Scrollbar(self.ventana, orient="vertical", command=canvas.yview)
+        scrollbar.pack(side="right", fill="y", padx=(0, 20), pady=20)
+
+        # Configurar canvas para usar scrollbar
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Frame que contendrá todo el contenido (dentro del canvas)
+        main_frame = tk.Frame(canvas, bg="#dce2ec")
+
+        # Crear ventana en el canvas
+        canvas_window = canvas.create_window((0, 0), window=main_frame, anchor="nw")
+
+        # Función para actualizar el scroll region cuando cambie el tamaño
+        def configure_scroll_region(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+            # Ajustar el ancho del frame al ancho del canvas
+            canvas_width = event.width
+            canvas.itemconfig(canvas_window, width=canvas_width)
+
+        main_frame.bind("<Configure>", configure_scroll_region)
+        canvas.bind("<Configure>", lambda e: canvas.itemconfig(canvas_window, width=e.width))
+
+        # Habilitar scroll con la rueda del ratón
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+
+        # Bind para diferentes sistemas operativos
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)  # Windows y MacOS
+        canvas.bind_all("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))  # Linux scroll up
+        canvas.bind_all("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))   # Linux scroll down
+
+        # ======== SECCIONES ========
         # ======== SECCIÓN 1: ESTADO DEL SERVICIO ========
         self.setup_service_section(main_frame)
 
@@ -49,7 +83,7 @@ class ClientManagerPanel:
         # ======== SECCIÓN 3: CLIENTES CONECTADOS ========
         self.setup_clients_section(main_frame)
 
-        # ======== SECCIÓN 4: MONTAJES NFS (NUEVA) ========
+        # ======== SECCIÓN 4: MONTAJES NFS ========
         self.setup_mounts_section(main_frame)
 
         # ======== SECCIÓN 5: BACKUPS ========
@@ -57,6 +91,10 @@ class ClientManagerPanel:
 
         # ======== BOTONES INFERIORES ========
         self.setup_bottom_buttons(main_frame)
+
+        # Actualizar scroll region inicial
+        main_frame.update_idletasks()
+        canvas.configure(scrollregion=canvas.bbox("all"))
 
     def setup_service_section(self, parent):
         """Sección de control del servicio"""
