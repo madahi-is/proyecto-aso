@@ -98,31 +98,70 @@ class MountManager:
             True si se montó exitosamente
         """
         try:
+            print(f"[INFO] Iniciando montaje de {server}:{remote_path} en {mount_point}")
+
             # Verificar que el punto de montaje existe, si no, crearlo
             if not os.path.exists(mount_point):
                 print(f"[INFO] Creando punto de montaje: {mount_point}")
                 res = MountManager._run_privileged(["mkdir", "-p", mount_point])
                 if res.returncode != 0:
                     raise MountError(f"No se pudo crear punto de montaje: {res.stderr}")
+                print(f"[OK] Punto de montaje creado")
+            else:
+                print(f"[INFO] Punto de montaje ya existe: {mount_point}")
 
             # Construir comando de montaje
             server_path = f"{server}:{remote_path}"
             cmd = ["mount", "-t", "nfs"]
 
-            if options:
-                cmd.extend(["-o", options])
+            # Agregar opciones por defecto si no se especificaron
+            if not options:
+                options = "rw,sync"
 
+            cmd.extend(["-o", options])
             cmd.extend([server_path, mount_point])
 
+            # Mostrar comando completo
+            print(f"[INFO] Comando: {' '.join(cmd)}")
+
             # Ejecutar montaje
-            print(f"[INFO] Montando {server_path} en {mount_point}")
+            print(f"[INFO] Ejecutando montaje...")
             res = MountManager._run_privileged(cmd)
 
-            if res.returncode != 0:
-                raise MountError(f"Error al montar: {res.stderr}")
+            print(f"[DEBUG] mount returncode: {res.returncode}")
+            print(f"[DEBUG] mount stdout: {res.stdout}")
+            print(f"[DEBUG] mount stderr: {res.stderr}")
 
+            if res.returncode != 0:
+                # Proporcionar mensaje de error más claro
+                error_msg = res.stderr.strip()
+                if "access denied" in error_msg.lower():
+                    raise MountError(f"Acceso denegado. Verifique que:\n"
+                                   f"1. El servidor permite conexiones desde este cliente\n"
+                                   f"2. La ruta {remote_path} está exportada\n"
+                                   f"3. Las opciones de permisos son correctas\n\n"
+                                   f"Error: {error_msg}")
+                elif "no route to host" in error_msg.lower():
+                    raise MountError(f"No se puede alcanzar el servidor {server}.\n"
+                                   f"Verifique la red y firewall.\n\n"
+                                   f"Error: {error_msg}")
+                elif "connection timed out" in error_msg.lower():
+                    raise MountError(f"Timeout al conectar con {server}.\n"
+                                   f"El servidor puede estar apagado o el puerto NFS bloqueado.\n\n"
+                                   f"Error: {error_msg}")
+                elif "program not registered" in error_msg.lower():
+                    raise MountError(f"El servicio NFS no está corriendo en {server}.\n"
+                                   f"En el servidor ejecute:\n"
+                                   f"  sudo systemctl start nfs-server\n\n"
+                                   f"Error: {error_msg}")
+                else:
+                    raise MountError(f"Error al montar: {error_msg}")
+
+            print(f"[OK] Montaje exitoso!")
             return True
 
+        except MountError:
+            raise
         except Exception as e:
             raise MountError(f"No se pudo montar NFS: {e}")
 
@@ -339,4 +378,3 @@ class MountManager:
 
         except Exception as e:
             raise MountError(f"Error eliminando entrada de fstab: {e}")
-
