@@ -4,7 +4,7 @@ from tkinter.font import BOLD
 import util.generic as utl
 import os
 # Asegúrate de tener util.exports_manager y util.generic disponibles
-from util.exports_manager import ExportsManager, ExportsError 
+from util.exports_manager import ExportsManager, ExportsError
 
 # ====================================================================
 # === 1. CLASE ADD CORREGIDA (Crea directorios si no existen) ========
@@ -52,13 +52,15 @@ class MasterPanel:
             if var.get():
                 # Manejar opciones con valor (anonuid/anongid)
                 if name == "anonuid":
-                    if anonuid_val:
+                    # Solo añadir si el Checkbutton está marcado Y tiene un valor
+                    if var.get() and anonuid_val:
                         if not anonuid_val.isdigit():
                             messagebox.showerror("Error", "anonuid debe ser un valor numérico.", parent=self.new_host_window)
                             return
                         opciones_finales.append(f"anonuid={anonuid_val}")
                 elif name == "anongid":
-                    if anongid_val:
+                    # Solo añadir si el Checkbutton está marcado Y tiene un valor
+                    if var.get() and anongid_val:
                         if not anongid_val.isdigit():
                             messagebox.showerror("Error", "anongid debe ser un valor numérico.", parent=self.new_host_window)
                             return
@@ -69,7 +71,9 @@ class MasterPanel:
         
         opciones_raw = ",".join(opciones_finales)
 
-        self.new_host_window.destroy()
+        # Destruir la ventana de edición antes de continuar con la lógica principal
+        if hasattr(self, 'new_host_window'):
+            self.new_host_window.destroy()
 
         # 3. Validar entradas
         seleccion = self.treeview.selection()
@@ -219,25 +223,38 @@ class MasterPanel:
                 col = 0
                 row += 1
 
-        # 3. Campos para opciones de valor (anonuid/anongid)
+        # 3. Campos para opciones de valor (anonuid/anongid) - CON CHECKBUTTONS DE SELECCIÓN
+        tk.Label(self.new_host_window, text="Opciones de Mapeo de Usuario (UID/GID):", font=("Times New Roman", 10, BOLD), bg="#dce2ec").pack(pady=(10,5))
+
         value_options_frame = tk.Frame(self.new_host_window, bg="#dce2ec")
-        value_options_frame.pack(pady=10)
+        value_options_frame.pack(pady=5)
+        
+        # --- anonuid ---
+        self.anonuid_var_entry = tk.StringVar(value=anonuid_val)
+        self.anonuid_var_check = tk.IntVar(value=1 if anonuid_val else 0) # Marcar si tiene valor
 
-        # anonuid
-        tk.Label(value_options_frame, text="anonuid:", bg="#dce2ec").grid(row=0, column=0, padx=5, sticky='e')
-        self.anonuid_var = tk.StringVar(value=anonuid_val)
-        self.anonuid_entry = ttk.Entry(value_options_frame, textvariable=self.anonuid_var, width=15)
+        anonuid_check = ttk.Checkbutton(value_options_frame, text="anonuid:", variable=self.anonuid_var_check, onvalue=1, offvalue=0)
+        anonuid_check.grid(row=0, column=0, padx=5, sticky='w')
+
+        self.anonuid_entry = ttk.Entry(value_options_frame, textvariable=self.anonuid_var_entry, width=15)
         self.anonuid_entry.grid(row=0, column=1, padx=5)
-        # Checkbutton para anonuid (se activa si hay un valor, o se marca explícitamente)
-        self.option_vars["anonuid"] = tk.IntVar(value=1 if anonuid_val else 0)
+        
+        # Guardar la variable de Checkbutton bajo el nombre de la opción
+        self.option_vars["anonuid"] = self.anonuid_var_check
 
-        # anongid
-        tk.Label(value_options_frame, text="anongid:", bg="#dce2ec").grid(row=1, column=0, padx=5, sticky='e')
-        self.anongid_var = tk.StringVar(value=anongid_val)
-        self.anongid_entry = ttk.Entry(value_options_frame, textvariable=self.anongid_var, width=15)
+
+        # --- anongid ---
+        self.anongid_var_entry = tk.StringVar(value=anongid_val)
+        self.anongid_var_check = tk.IntVar(value=1 if anongid_val else 0) # Marcar si tiene valor
+
+        anongid_check = ttk.Checkbutton(value_options_frame, text="anongid:", variable=self.anongid_var_check, onvalue=1, offvalue=0)
+        anongid_check.grid(row=1, column=0, padx=5, sticky='w')
+        
+        self.anongid_entry = ttk.Entry(value_options_frame, textvariable=self.anongid_var_entry, width=15)
         self.anongid_entry.grid(row=1, column=1, padx=5)
-        # Checkbutton para anongid
-        self.option_vars["anongid"] = tk.IntVar(value=1 if anongid_val else 0)
+
+        # Guardar la variable de Checkbutton bajo el nombre de la opción
+        self.option_vars["anongid"] = self.anongid_var_check
 
 
         # 4. Botones OK/Cancel
@@ -250,8 +267,8 @@ class MasterPanel:
                                  self.option_vars, 
                                  is_edit_mode, 
                                  host_seleccionado,
-                                 anonuid_val=self.anonuid_var.get().strip(),
-                                 anongid_val=self.anongid_var.get().strip()
+                                 anonuid_val=self.anonuid_var_entry.get().strip(), # Obtener valor de Entry
+                                 anongid_val=self.anongid_var_entry.get().strip() # Obtener valor de Entry
                              ))
         boton_ok.pack(side="left", padx=5)
         
